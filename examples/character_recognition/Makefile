@@ -30,7 +30,7 @@ predict: predict.c ../../libnn.a
 	$(CC) $(CFLAGS) -I../.. predict.c ../../libnn.a $(LDFLAGS) -o $@
 
 samples.csv:
-	curl -s -S -L -f --compressed http://synthint.ai/training_data/$@.gz -z $@ -o $@.gz && gunzip $@.gz
+	curl -s -S -L -f --compressed http://coledd.com/training_data/$@.gz -z $@ -o $@.gz && gunzip $@.gz
 
 $(CSV_OUTPUTS)&: samples.csv ../../split.py
 	python ../../split.py samples.csv --train 0.8 --validation 0.1
