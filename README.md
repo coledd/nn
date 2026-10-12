@@ -1,8 +1,8 @@
 Neural Network library for embedded systems
 
-Copyright (c) 2019-2026 SynthInt Technologies, LLC
+Copyright (c) 2019-2026 Cole Design and Development, LLC
 
-https://synthint.ai
+https://coledd.com
 
 SPDX-License-Identifier: Apache-2.0
 
@@ -279,6 +279,6 @@ nn_t *nn = nn_load_model_inplace(model_inplace_bin, model_inplace_bin_len);
 
 ## License
 
-Copyright (c) 2019-2026 SynthInt Technologies, LLC. All rights reserved.
+Copyright (c) 2019-2026 Cole Design and Development, LLC. All rights reserved.
 
 Licensed under the [Apache License 2.0](./LICENSE).

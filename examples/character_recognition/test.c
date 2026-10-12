@@ -1,7 +1,7 @@
 /*
  * Neural Network library
- * Copyright (c) 2019-2025 SynthInt Technologies, LLC
- * https://synthint.ai
+ * Copyright (c) 2019-2026 Cole Design and Development, LLC
+ * https://coledd.com
  * SPDX-License-Identifier: Apache-2.0
  */
 
