@@ -1,186 +1,185 @@
-# Fall Detection
+<p align="center">
+  <img src="figures/banner.svg" alt="Fall Detection: watching a live accelerometer stream for the free-fall, impact and stillness of a fall, with three recurrent layers." width="100%">
+</p>
 
-Trains a recurrent network to continuously monitor a simulated 3-axis accelerometer stream and flag a fall -- a multi-phase event (free-fall dip, impact spike, then a long stretch of post-fall stillness) spread across a much longer sequence than the gesture example's fixed windows, with a per-timestep label rather than one label for the whole window. No dataset to download -- every sequence is synthesized on the fly.
+> **Abstract.** A fall-detection pendant watches its wearer's movement continuously and has to tell a real fall from everything else a body does. A fall is a pattern over time — a brief free fall, a sharp impact, then a long stillness at an unusual orientation — so this example classifies a live 3-axis accelerometer stream one sample at a time with a recurrent network, and labels every timestep rather than a whole window. It trains three recurrent layer types on identical synthetic data: a plain RNN, a GRU and an LSTM, with 337 to 1,297 parameters. Measured over seven training runs each, the RNN and the LSTM detected every fall in every run with no false alarms. The GRU, which stops training earliest, missed some falls in three of its seven runs. The data is simulated, so these numbers measure the method, not a product.
 
-This example trains and compares **three** recurrent layer types on the identical task and data: `train_rnn.c` (plain RNN), `train_gru.c` (GRU), and `train_lstm.c` (LSTM). All three share `test.c` and `fall_data.[ch]`. `train_rnn.c` trains with `nn_set_optimizer()`'s `NN_OPTIMIZER_ADAM`; `train_gru.c`/`train_lstm.c` still use plain SGD -- see [Optimizer choice](#optimizer-choice-why-rnn-uses-adam-and-gru-lstm-dont) below for why that's not an oversight.
+| | |
+|---|---|
+| **Task** | Per-timestep classification of a 150-sample, 3-axis accelerometer stream: normal activity, or a fall from its onset on |
+| **Data** | Synthetic, generated on the fly by `fall_data.[ch]`: daily-activity motion, with one fall spliced in at a random point in half the sequences |
+| **Model** | One recurrent layer of 16 units (RNN, GRU or LSTM) → sigmoid; 337 / 977 / 1,297 parameters |
+| **Hardware** | Any low-power microcontroller with a 3-axis accelerometer; the largest model is under 6 KB of float weights |
+| **Result** | RNN and LSTM: 100% of falls detected and 0 false alarms in 7 of 7 runs; GRU: 100% recall in 4 of 7 runs |
 
-## In an embedded system
+## 1. The problem
 
-This is the model shape behind a real deployed product category: fall-detection pendants and smartwatch fall alerts for elderly or at-risk users. The device is always on, always watching a live accelerometer stream, and has to decide -- continuously, on-device, on a battery-powered microcontroller -- whether what just happened was a genuine fall worth raising an alarm for.
+Fall-detection pendants and smartwatch fall alerts protect older and at-risk people who live alone. The device is always on, always watching a live accelerometer stream, and has to decide — continuously, on a battery-powered microcontroller — whether what just happened was a genuine fall worth raising an alarm for.
 
-That "genuine" is the hard part. A fall isn't one instant, it's a *pattern over time*: a brief free-fall dip, then a sharp impact, then -- critically -- the person doesn't get up normally afterward. Confirming a real fall (and not, say, just setting the device down hard on a table) means remembering the free-fall dip once the impact arrives, and then continuing to watch for unusual stillness for a long stretch afterward.
+"Genuine" is the hard part. A fall isn't one instant; it's a *pattern over time*: a brief free-fall dip, then a sharp impact, then the person doesn't get up normally. Confirming a real fall, and not the device being set down hard on a table, means remembering the free-fall dip once the impact arrives, and then continuing to watch for unusual stillness for a long stretch afterward. That is a job for a network with memory: a recurrent layer, which carries a hidden state from one sample to the next.
 
-## Why three architectures on the same task?
+## 2. The device
 
-The gesture example makes the case for `LAYER_TYPE_RNN` over no memory at all. The natural next question is: doesn't a fall's long quiet gap between the dip and the "is it still down there" confirmation call for something more than a plain RNN's hidden state, which gets pushed back through a squashing nonlinearity every single timestep? Gated recurrent layers (GRU, LSTM) exist specifically to let a network hold a signal for a long stretch without it decaying.
+<p align="center">
+  <img src="figures/device.svg" alt="A person wearing a pendant on a lanyard: standing during everyday activity with acceleration steady near 1 g, falling with a free fall and an impact, then lying on the floor while the pendant raises an alert. An inset shows the pendant's contents: a 3-axis accelerometer, a microcontroller running a 16-unit recurrent network, a battery and a radio." width="900">
+</p>
+<p align="center"><sub><b>Figure 1.</b> A fall-detection pendant. The accelerometer feeds the network one sample at a time; only an alert ever leaves the device. Schematic, not to scale.</sub></p>
 
-Rather than assert that and move on, this example trains all three on the *exact same* synthetic data and reports what actually happens. Measured across several runs each:
+The network is small enough for any microcontroller that can read an accelerometer: the largest of the three models, the LSTM, has 1,297 parameters (under 6 KB as 32-bit floats), and each sample costs one `nn_predict()` call.
 
-| | Optimizer | Epochs to converge | Final per-timestep accuracy (held-out) |
+## 3. The data
+
+There's no dataset to download: `fall_data.[ch]` synthesizes every training, validation and test sequence on the fly, so nothing the model is tested on was ever seen in training. Each sequence is 150 timesteps of a 3-axis accelerometer, in g.
+
+- **Normal activity:** gentle, noisy daily-activity motion, with the magnitude of acceleration near 1 g (gravity) throughout. Every timestep is labeled 0.
+- **Fall:** the same, with one fall spliced in at a random onset: 5-8 timesteps of near-weightlessness (magnitude collapsing toward 0 g), a 1-2 timestep impact spike, then stillness for the rest of the sequence at a random new orientation — the body, and the device, have been turned over. Labels are 0 before the onset and 1 from the onset to the end, so an alert, once raised, stays raised.
+
+<p align="center">
+  <img src="figures/stream.svg" alt="Two line charts of x, y and z acceleration and their magnitude over 150 timesteps. Normal activity: magnitude steady near 1 g. Fall: magnitude near 1 g until timestep 115, then near 0 g for several timesteps of free fall, a spike near 4 g at impact, then steady near 1 g with the axes at new constant values. The fall portion is shaded as labeled 1." width="900">
+</p>
+<p align="center"><sub><b>Figure 2.</b> One normal and one fall sequence from <code>fall_data.c</code>. The shaded span is labeled as a fall. After the impact, the magnitude returns to 1 g; what gives the fall away is the history: the free fall before it, and the axes holding still at a new orientation after.</sub></p>
+
+A single sample can't tell these apart: the magnitude after a fall is the same 1 g as before it. The network has to carry the free fall and the impact in its hidden state for the rest of the sequence.
+
+## 4. Method
+
+### 4.1 Three recurrent layers
+
+The library has three recurrent layer types, and the example trains each on the identical task, with one training program apiece and a shared `test.c`. All three read one accelerometer sample per call, carry their state to the next call, and output a fall probability every timestep; `nn_reset_state()` clears the state between independent sequences.
+
+<p align="center">
+  <img src="figures/architecture_rnn.svg" alt="RNN architecture: input of 3 accelerometer axes into a 16-unit tanh RNN layer with a recurrent self-loop carrying hidden state h, into a single sigmoid output for fall probability." width="760">
+</p>
+<p align="center"><sub><b>Figure 3.</b> RNN (<code>train_rnn.c</code>): one hidden state, passed through tanh at every step.</sub></p>
+
+<p align="center">
+  <img src="figures/architecture_gru.svg" alt="GRU architecture: input of 3 accelerometer axes into a 16-unit GRU layer with a recurrent self-loop carrying hidden state h, gated by reset and update gates, into a single sigmoid output." width="760">
+</p>
+<p align="center"><sub><b>Figure 4.</b> GRU (<code>train_gru.c</code>): one hidden state, with reset and update gates deciding how much of it to keep at each step.</sub></p>
+
+<p align="center">
+  <img src="figures/architecture_lstm.svg" alt="LSTM architecture: input of 3 accelerometer axes into a 16-unit LSTM layer with two recurrent loops, cell state c gated by forget and input gates, and hidden state h, into a single sigmoid output." width="760">
+</p>
+<p align="center"><sub><b>Figure 5.</b> LSTM (<code>train_lstm.c</code>): a hidden state plus a separately gated cell state, built to hold a signal over long gaps.</sub></p>
+
+| | RNN | GRU | LSTM |
 |---|---|---|---|
-| `train_rnn.c` | SGD (original) | 60, 61, 90, 110, 203 | 97-100% |
-| `train_rnn.c` | Adam (current) | 11, 13, 20, 20, 20, 25 | 97-100% |
-| `train_gru.c` | SGD | 32, 41, 42, 46 | 97-100% |
-| `train_lstm.c` | SGD | 9, 16, 33, 70 | 97-100% |
+| Recurrent layer | 16 units, tanh | 16 units; reset and update gates | 16 units; input, forget and output gates |
+| Persistent state | `h` | `h` | `h` and cell state `c` |
+| Parameters | 337 | 977 | 1,297 |
+| Optimizer | Adam, learning rate 0.01 | SGD, learning rate 0.05 | SGD, learning rate 0.05 |
 
-The honest finding: **all three architectures reach essentially the same ceiling** on this task (100% fall recall, 0% false alarms, in every run) -- a plain RNN is not actually incapable of solving it. With everything on plain SGD, what gating buys you is *how fast and how reliably* the network finds that solution: LSTM typically converges in well under half the epochs an RNN needs, with GRU in between, at a lower per-timestep cost than LSTM. On a microcontroller that means fewer training passes over the same data (if training happens at all on-device) and a smaller, more predictable variance in how long training takes to converge -- not a difference in the ceiling you can eventually reach.
+Each layer is followed by one sigmoid output. A GRU has about three times an RNN's parameters, and an LSTM about four, because each gate has its own weights for every hidden unit (see `LAYER_TYPE_GRU` and `LAYER_TYPE_LSTM` in `nn.h`).
 
-Switching optimizers changes this picture again -- see the next section. Don't take any of "gating is unnecessary", "gating is required", or "Adam is strictly better" on faith here -- run all three yourself (`make && ./train_rnn m1.txt && ./train_gru m2.txt && ./train_lstm m3.txt`) and look at the epoch counts printed at the end of each.
+### 4.2 Training and testing
 
-### Optimizer choice: why RNN uses Adam and GRU/LSTM don't
+All three train with `nn_train()` once per timestep, against that timestep's own label, and stop early once validation error hasn't improved for 5 epochs. Training and validation sequences are synthesized fresh. `test.c` then evaluates a saved model on 100 new sequences, 50 normal and 50 with a fall, and reports:
 
-The library's optimizer is selectable (`nn_set_optimizer()` -- see the top-level README/`nn.h`), so it's natural to ask whether switching away from plain SGD changes the comparison above. It does, but not uniformly across all three, which is itself the interesting finding. Adam was tried on all three architectures on this exact task; the honest, measured result:
+- **per-timestep accuracy** over all 15,000 timesteps;
+- **recall:** falls whose first detection (output at or above 0.5) came at or after the onset — a trigger before the onset counts as a miss;
+- **false alarms:** normal sequences in which the output ever reached 0.5;
+- **detection latency:** timesteps from the onset to the first detection, averaged over detected falls.
 
-| | SGD epochs | Adam epochs (same task) | Kept? |
+## 5. Results
+
+Each architecture was trained and tested seven times, with a different random seed each run.
+
+<p align="center">
+  <img src="figures/runs.svg" alt="Dot plots of seven runs per architecture. Epochs to early stop: RNN median 13 with one run at 86, GRU median 10, LSTM median 30. Per-timestep test accuracy: RNN median 99.4 percent, GRU 98.6, LSTM 99.7. Recall: RNN and LSTM 100 percent in every run; GRU 100 percent in four runs, 98, 92 and 88 percent in the others, the last with 30 percent false alarms." width="900">
+</p>
+<p align="center"><sub><b>Figure 6.</b> Seven training runs per architecture, each tested on 100 fresh sequences. Each dot is one run; the bar is the median.</sub></p>
+
+| | RNN | GRU | LSTM |
 |---|---|---|---|
-| `train_rnn.c` | 60, 61, 90, 110, 203 | 11, 13, 20, 20, 20, 25 | **Yes** -- consistent 3-10x fewer epochs |
-| `train_gru.c` | 32, 41, 42, 46 | 16, 16, 30, 177, 500 (hit the hard cap) | No -- unreliable, one run never converged |
-| `train_lstm.c` | 9, 16, 33, 70 | 20, 20, 22, 49, 49 | No -- roughly a wash, no clear benefit |
+| Epochs to early stop, median (range) | 13 (8-86) | 10 (6-18) | 30 (14-42) |
+| Per-timestep accuracy, median (range) | 99.35% (96.95-100%) | 98.55% (97.02-99.41%) | 99.69% (97.99-99.94%) |
+| Runs with every fall detected | 7 of 7 | 4 of 7 | 7 of 7 |
+| Runs with no false alarms | 7 of 7 | 5 of 7 | 7 of 7 |
+| Mean detection latency | 0 timesteps | 0 timesteps | 0 timesteps |
 
-All Adam runs, on all three architectures, still reached the same 100%-accuracy/100%-recall/0-false-alarm ceiling -- this is purely about convergence speed and reliability, not correctness. Only `train_rnn.c` kept the switch: Adam's per-parameter adaptive step size apparently compensates specifically for the difficulty a plain, un-gated hidden state has on this task (the same difficulty gating exists to solve), converging faster and more consistently than SGD ever did on this file. That same switch did *not* reliably help the already-gated GRU/LSTM -- sometimes faster, sometimes much slower (GRU's one run against the 500-epoch safety cap is a real, if infrequent, downside), with no clear net win either way -- so they stay on the plain SGD they were already converging well with. The takeaway isn't "Adam is better" or "Adam is worse" in general; it's that the optimizer and the architecture interact, and this is exactly the kind of thing worth actually measuring on your own task rather than assuming.
+**The plain RNN is enough for this task.** With Adam, it reached 100% recall with no false alarms in every run, usually within 8-20 epochs. Its hidden state is pushed through tanh at every step, but the evidence it needs — the free fall, the impact, and a magnitude that settles at 1 g with the axes at new values — is strong enough to hold.
 
-## Model architectures
+**The LSTM is the most accurate per timestep** (median 99.7%), and was also perfect on recall and false alarms in every run. It takes the longest to train, 14-42 epochs, and has the most parameters.
 
-All three share the same input/output shape and differ only in the recurrent layer's internals.
+**The GRU is the least reliable here.** It early-stops after only 6-18 epochs, and in three of seven runs the saved model missed some falls (98%, 92% and 88% recall); one of those also raised false alarms on 30% of the normal sequences. When it does converge, it detects falls as well as the others. For a device that has to be trusted, it's the one that would need more care in training.
 
-### RNN (`train_rnn.c`)
+Detection was immediate: every model, in every run, averaged 0.0 timesteps from the onset to the first detection (to the one decimal `test` prints). The free fall is unlike anything in normal activity, and all three flag it at once. Recall and false alarms, which a user would notice, matter more than per-timestep accuracy.
 
-![RNN architecture: Input 3 accelerometer axes, into a 16-unit tanh RNN layer with one labeled recurrent self-loop for hidden state h, into a single sigmoid output for fall probability; captioned "one timestep per call"](architecture_rnn.svg)
+## 6. Running on the device
 
-| Layer | Type | Output shape | Notes |
-|---|---|---|---|
-| 0 | Input | 3 | one accelerometer sample (x, y, z) per call |
-| 1 | RNN | 16 | tanh activation; carries one persistent state (`h`) across calls |
-| 2 | Output | 1 | Sigmoid -- fall probability at this timestep |
+The firmware loop is one call per accelerometer sample: `nn_predict()` on the three axes, and an alert when the output crosses the threshold. The recurrent state lives inside the model, so the firmware keeps nothing between samples except the model itself; `nn_reset_state()` starts a new monitoring window. The weights, at 337-1,297 parameters, fit in a few kilobytes of flash, and the per-sample cost is a single small recurrent step. The repository's `quantize` and `export` tools convert a trained model to int8 and to the zero-copy inplace format for flash (see the top-level README).
 
-337 trainable parameters. Trains with `NN_OPTIMIZER_ADAM` (see [Optimizer choice](#optimizer-choice-why-rnn-uses-adam-and-gru-lstm-dont) above) at a correspondingly smaller learning rate (0.01, vs. the other two files' 0.05) -- Adam's normalized per-parameter step needs a different rate than SGD, not just a smaller version of the same one.
+## 7. Limitations
 
-### GRU (`train_gru.c`)
+- **The data is simulated.** Real falls vary far more: slumping down a wall, falling onto furniture, falling slowly, or getting partway up. Real daily life includes events that look like falls — sitting down hard, dropping the device, a car going over a bump. A deployable detector needs training and testing on recorded falls and recorded daily activity.
+- **The sample rate is unspecified.** `fall_data.c` works in timesteps, not seconds; the durations here (5-8 timesteps of free fall, 150-timestep windows) would need to be matched to a real accelerometer's rate.
+- **One fall per window, and the label stays on.** A real monitor runs indefinitely and has to recover after the wearer gets up; this example's labels never return to 0 within a window.
+- **No confirmation step.** Commercial devices typically wait for the wearer to cancel an alert before calling for help; that logic belongs in the application around the model.
 
-![GRU architecture: Input 3 accelerometer axes, into a 16-unit gated GRU layer with one labeled recurrent self-loop for hidden state h (reset+update gated), into a single sigmoid output for fall probability; captioned "one timestep per call"](architecture_gru.svg)
-
-| Layer | Type | Output shape | Notes |
-|---|---|---|---|
-| 0 | Input | 3 | one accelerometer sample (x, y, z) per call |
-| 1 | GRU | 16 | fixed gate nonlinearities (sigmoid ×2, tanh); carries one persistent state (`h`), gated by a reset and an update gate (see `LAYER_TYPE_GRU`'s comment in `nn.h`) |
-| 2 | Output | 1 | Sigmoid -- fall probability at this timestep |
-
-977 trainable parameters -- about 3x the RNN's, since each of the three gates (reset, update, candidate) has its own weight row per hidden unit.
-
-### LSTM (`train_lstm.c`)
-
-![LSTM architecture: Input 3 accelerometer axes, into a 16-unit gated LSTM layer with two labeled recurrent self-loops -- cell state c (gated forget/input) and hidden state h (previous timestep) -- into a single sigmoid output for fall probability; captioned "one timestep per call"](architecture_lstm.svg)
-
-| Layer | Type | Output shape | Notes |
-|---|---|---|---|
-| 0 | Input | 3 | one accelerometer sample (x, y, z) per call |
-| 1 | LSTM | 16 | fixed gate nonlinearities (sigmoid ×3, tanh); carries **two** persistent states across calls -- the hidden state `h` (like RNN) and the cell state `c` (LSTM-specific, see `LAYER_TYPE_LSTM`'s comment in `nn.h`) |
-| 2 | Output | 1 | Sigmoid -- fall probability at this timestep |
-
-1,297 trainable parameters -- the most of the three (under 6KB as 32-bit floats), since each of the four gates (input, forget, cell-candidate, output) has its own weight row per hidden unit.
-
-All three call `nn_train()`/`nn_predict()` once per timestep of a 150-sample monitoring window, with the label itself varying per timestep (0 throughout normal activity, flipping to 1 at the fall's onset and staying 1 through the end of the window) rather than one label for the whole window the way the gesture example does. `nn_reset_state()` is called before each new window (zeroing `h` for RNN/GRU, both `h` and `c` for LSTM).
-
-## Build and run
+## Appendix A. Build and run
 
 ```
 cd examples/fall_detection
 make
 ```
 
-builds all three training programs (`train_rnn`, `train_gru`, `train_lstm`) plus the shared `test`.
+| Command | What it does |
+|---|---|
+| `./train_rnn model_rnn.txt` | trains the RNN on freshly synthesized sequences |
+| `./train_gru model_gru.txt` | the same for the GRU |
+| `./train_lstm model_lstm.txt` | the same for the LSTM |
+| `./test model_rnn.txt` | tests any of the three on 50 normal and 50 fall sequences: per-timestep accuracy, recall, false alarms and latency |
 
-Train whichever architecture you want to try (each synthesizes fresh training/validation sequences on the fly -- nothing to download; use a different model filename per architecture if you want to keep and compare all three):
-```
-./train_rnn model_rnn.txt
-./train_gru model_gru.txt
-./train_lstm model_lstm.txt
-```
+Nothing is downloaded, and every run synthesizes new data, so results vary a little from run to run. Use a different model file per architecture to keep all three.
 
-Evaluate any of them against a fresh, larger, independently-generated batch and print per-timestep accuracy, recall, false alarms, and detection latency:
-```
-./test model_rnn.txt
-./test model_gru.txt
-./test model_lstm.txt
-```
+The figures in this document are generated by `tools/docs/fall_detection.py`.
 
-## Sample output
+## Appendix B. Program output
 
-Every run prints one example sequence of each kind (every 3rd timestep shown, condensed to acceleration magnitude + label) before training starts, so the free-fall dip and impact are visible. Excerpt of a FALL example around the onset (a normal sequence stays at label 0 and |a|≈1g throughout):
+Each training program prints one example sequence of each kind before training (every third timestep, as acceleration magnitude and label). An excerpt of the fall sequence around its onset:
+
 ```
 Sample FALL sequence (|accel| in g, every 3rd timestep):
   ...
-  t= 87: |a|=1.04  label=0
-  t= 90: |a|=0.02  label=1      <- free-fall: magnitude collapses toward 0
-  t= 93: |a|=0.03  label=1
-  t= 96: |a|=1.01  label=1      <- impact happened between t=93 and t=96 (not sampled at this stride)
-  t= 99: |a|=1.00  label=1      <- post-fall stillness: label stays 1 for the rest of the window
+  t= 78: |a|=1.01  label=0
+  t= 81: |a|=1.03  label=0
+  t= 84: |a|=0.02  label=1      <- free fall: magnitude collapses toward 0
+  t= 87: |a|=0.02  label=1
+  t= 90: |a|=1.00  label=1      <- the impact came between t=87 and t=90 (not sampled at this stride)
+  t= 93: |a|=1.01  label=1      <- stillness: label stays 1 to the end of the window
   ...
 ```
 
-`./train_rnn model_rnn.txt` (training log excerpt and final summary -- note the Adam-tuned learning rate, and the epoch count against the SGD-era 61 in the table above):
-```
-train error, validation error, learning rate
-0.01602, 0.36018, 0.01000
-0.01729, 0.04183, 0.01000
-0.00796, 0.02594, 0.01000
-...
-0.00700, 0.01845, 0.01000
-0.01166, 0.04682, 0.01000
-No validation improvement for 5 epochs (best: 0.00357) -- stopping early.
-Final (last epoch) train error: 0.011663, validation error: 0.046818
-Best validation error (the model saved to disk): 0.003565
-Training epochs: 13
-Per-timestep accuracy: 2715/3000 = 90.50%
-Falls detected: 10/10
-False alarms (normal sequences that ever triggered): 0/10
-Average detection latency (timesteps after true onset): 1.5
-```
-(That 90.50%/1.5-timestep-latency figure is this specific run's own small, freshly-synthesized 3000-timestep check at the moment training stopped -- noisier than the large independent `./test` batch below, which is the number to trust.)
+`./train_rnn model_rnn.txt`, then `./test model_rnn.txt` (one of the seven runs in figure 6):
 
-`./train_gru model_gru.txt`:
 ```
 train error, validation error, learning rate
-0.00804, 0.01451, 0.05000
-0.00380, 0.01723, 0.05000
-0.00274, 0.01532, 0.05000
+0.01248, 0.02663, 0.01000
+0.01354, 0.01415, 0.01000
+0.01688, 0.00530, 0.01000
 ...
-0.00003, 0.00002, 0.05000
-No validation improvement for 5 epochs (best: 0.00001) -- stopping early.
-Final (last epoch) train error: 0.000034, validation error: 0.000017
-Best validation error (the model saved to disk): 0.000013
-Training epochs: 41
+0.01834, 0.00480, 0.01000
+0.02182, 0.00001, 0.01000
+No validation improvement for 5 epochs (best: 0.00000) -- stopping early.
+Final (last epoch) train error: 0.021822, validation error: 0.000007
+Best validation error (the model saved to disk): 0.000000
+Training epochs: 13
 Per-timestep accuracy: 3000/3000 = 100.00%
 Falls detected: 10/10
 False alarms (normal sequences that ever triggered): 0/10
 Average detection latency (timesteps after true onset): 0.0
 ```
-
-`./train_lstm model_lstm.txt`:
-```
-train error, validation error, learning rate
-0.01927, 0.01491, 0.05000
-0.00473, 0.02473, 0.05000
-0.00399, 0.01624, 0.05000
-...
-0.00044, 0.01338, 0.05000
-No validation improvement for 5 epochs (best: 0.01267) -- stopping early.
-Final (last epoch) train error: 0.000438, validation error: 0.013376
-Best validation error (the model saved to disk): 0.012668
-Training epochs: 16
-Per-timestep accuracy: 2918/3000 = 97.27%
-Falls detected: 10/10
-False alarms (normal sequences that ever triggered): 0/10
-Average detection latency (timesteps after true onset): 0.0
-```
-(LSTM's early stop here landed on a slightly noisier local optimum than the other two in this particular run -- underscoring that "fewer epochs" isn't the same guarantee as "higher final accuracy"; see `./test` below, where all three still hit 100% fall recall with zero false alarms on fresh data.)
-
-`./test` against a fresh, larger, independently-generated batch, for each of the three models trained above:
 ```
 Test sequences: 50 normal, 50 fall (150 timesteps each, freshly synthesized)
+Per-timestep accuracy: 15000/15000 = 100.00%
+Falls detected (recall): 50/50 = 100.0%
+False alarms (normal sequences that ever triggered): 0/50 = 0.0%
+Average detection latency (timesteps after true onset): 0.0
 ```
-| Model | Per-timestep accuracy | Falls detected (recall) | False alarms | Avg. detection latency |
-|---|---|---|---|---|
-| RNN (Adam) | 14959/15000 = 99.73% | 50/50 = 100.0% | 0/50 = 0.0% | 0.0 |
-| GRU | 14995/15000 = 99.97% | 50/50 = 100.0% | 0/50 = 0.0% | 0.0 |
-| LSTM | 14903/15000 = 99.35% | 50/50 = 100.0% | 0/50 = 0.0% | 0.0 |
+
+The training program's own summary is a quick check on 10 + 10 fresh sequences; `test` is the larger, independent evaluation.
+
+## References
+
+1. S. Hochreiter and J. Schmidhuber, "Long short-term memory," *Neural Computation*, 1997.
+2. K. Cho et al., "Learning phrase representations using RNN encoder-decoder for statistical machine translation," *EMNLP*, 2014 (the GRU).

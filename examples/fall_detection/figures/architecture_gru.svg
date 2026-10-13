@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1150 470" width="1150" height="470">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 110 1150 360" width="1150" height="360">
   <title>Fall Detection — GRU (train_gru.c)</title>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -14,9 +14,7 @@
       <path d="M0,0 L10,5 L0,10 z" fill="#4f46e5"/>
     </marker>
   </defs>
-  <rect x="0" y="0" width="1150" height="470" fill="#ffffff"/>
-  <text x="575.0" y="38" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#111827">Fall Detection — GRU (train_gru.c)</text>
-  <text x="575.0" y="60" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13.5" fill="#6b7280">examples/fall_detection/train_gru.c</text>
+  <rect x="0" y="0" width="1150" height="470" fill="#fcfcfb"/>
   <rect x="90" y="250" width="190" height="110" rx="12" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
   <text x="185.0" y="299.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Input</text>
   <text x="185.0" y="321.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">3 (x, y, z)</text>

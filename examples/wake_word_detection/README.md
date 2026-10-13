@@ -1,106 +1,166 @@
-# Wake Word Detection
+<p align="center">
+  <img src="figures/banner.svg" alt="Wake Word Detection: listening for one spoken word in a second of audio, with log-mel features and a 32-unit GRU." width="100%">
+</p>
 
-Trains a recurrent network to classify a whole ~1-second spoken utterance as a single wake word ("marvin", by default) or not -- the model shape behind "Hey Siri"/"Alexa"/"OK Google"-style always-listening voice assistants, scaled down to something that fits a microcontroller. Unlike [`gesture_recognition`](../gesture_recognition/README.md) and [`fall_detection`](../fall_detection/README.md), there's no synthetic data generator here: `prepare_data.c` builds `samples.csv` from the real [Google Speech Commands dataset](https://storage.googleapis.com/download.tensorflow.org/data/speech_commands_v0.02.tar.gz) (CC BY 4.0), the way [`character_recognition`](../character_recognition/README.md) trains on real MNIST digits rather than synthesized ones.
+> **Abstract.** A voice-controlled device has to notice when it's being addressed without streaming its microphone anywhere or keeping a power-hungry speech recognizer awake. This example builds that always-on listener: it turns each second of 16 kHz audio into 49 frames of 20 log-mel energies, normalized per clip, and feeds them one frame at a time to a 32-unit GRU that decides whether the clip is the wake word, "marvin". It trains and tests on real recordings from Google's Speech Commands dataset. Over seven training runs, the network classified 78-89% of 441 held-out clips correctly (median 85%), missing the wake word in a median 16% of "marvin" clips and taking other audio for it in 14% of the rest. The split is by clip, not by speaker, so these numbers are likely optimistic for new voices.
 
-`train.c` trains a single GRU-based network. That's the result of a real comparison, not an assumption -- see [Why GRU](#why-gru) below.
+| | |
+|---|---|
+| **Task** | Binary classification of a 1-second audio clip: the wake word "marvin", or anything else |
+| **Data** | Google Speech Commands v0.02 (CC BY 4.0): 2,100 "marvin" clips and 2,302 others (other words and background noise), downloaded by the Makefile |
+| **Model** | 49 × 20 log-mel frames → GRU 32 → sigmoid; 5,121 parameters |
+| **Hardware** | An always-on microcontroller with a MEMS microphone, in front of a larger system it wakes |
+| **Result** | Test accuracy 78-89% over 7 runs (median 85.3%); false-reject median 15.7%, false-accept median 14.3% |
 
-## In an embedded system
+## 1. The problem
 
-This is the always-on listener at the front of a voice-controlled device: a doorbell, a smart speaker, a hearing aid, anything that needs to react to being addressed without streaming raw audio to a server (or even waking up a bigger, power-hungrier speech-recognition model) just to find out nobody said anything. It runs continuously, on-device, on a power budget where "always transcribing everything" isn't an option -- its only job is deciding, from a rolling ~1-second window of its own microphone, whether the one word it cares about was just spoken.
+A doorbell, a smart speaker or a hearing aid that responds to its name needs something listening all the time. Streaming raw audio to a server to find out whether anyone spoke to it costs bandwidth, power and privacy; keeping a full speech recognizer awake costs power. The usual answer is a *wake-word detector*: a small model on a low-power processor whose only job is deciding, from a rolling one-second window of its own microphone, whether the one word it cares about was just spoken. Only then does it wake everything else.
 
-Two pieces have to work together to make that possible, and this example is built to keep them visibly separate:
+Two pieces have to work together, and this example keeps them visibly separate:
 
-1. **Feature extraction** (`audio_features.[ch]`, at the repository root): turns a window of raw PCM samples into a short sequence of log-mel energy frames, normalized to zero mean/unit variance per clip -- the same transform a full speech-recognition pipeline uses, just feeding a much smaller downstream model. This is real signal-processing code, not a training-time-only shortcut, because it has to run identically on-device against the live mic buffer.
-2. **The classifier** (this directory's `train.c`): a small GRU-based network that reads that feature sequence one frame at a time and outputs a single wake-word probability.
+1. **Feature extraction** (`audio_features.[ch]`, at the repository root) turns a window of raw samples into a short sequence of log-mel energy frames — the same transform full speech recognizers start with. It runs identically on the device, against the live microphone buffer.
+2. **The classifier** (this directory's `train.c`) is a small GRU network that reads that sequence one frame at a time and outputs a wake-word probability.
 
-`predict.c` is the concrete illustration of that split: everything in it except loading the sample WAV file (`wav_reader.[ch]`, which a real target wouldn't need -- it already has PCM from its mic driver) is exactly what firmware would do.
+## 2. The device
 
-## Why a real dataset, unlike the other RNN examples?
+<p align="center">
+  <img src="figures/device.svg" alt="A smart speaker shown cut away: a MEMS microphone at 16 kHz feeds an always-on microcontroller running log-mel features and a GRU, which wakes a sleeping main processor only for the wake word. Beside it, what the device hears: 'Marvin', other words such as 'house', 'go' and 'stop', and background noise like a running tap." width="900">
+</p>
+<p align="center"><sub><b>Figure 1.</b> Where a wake-word detector sits: between the microphone and everything that costs power. Schematic, not to scale.</sub></p>
 
-`gesture_recognition` and `fall_detection` synthesize their own training data because doing so costs nothing and the point being made (RNN/GRU/LSTM can hold information across timesteps) doesn't depend on realism. Feature extraction is different: there's no meaningful way to fake "what an FFT and mel filterbank do to real speech," so this example needs real audio, and `prepare_data.c` -- not a downloaded, already-flattened CSV the way MNIST's `samples.csv` is -- is the one place in this codebase that turns a raw WAV file into the same feature rows a live target would compute for itself. See `prepare_data.c`'s top comment for the full rationale.
+`predict.c` shows the split in code: except for loading a WAV file (`wav_reader.[ch]`, which a device doesn't need — it already has samples from its microphone driver), everything it does is what the firmware does.
 
-The positive class is a single word, "marvin" by default -- one of two words ([Warden, 2018, §2](https://arxiv.org/abs/1804.03209)) the dataset's own authors deliberately included so they could double as a pretend wake word. The negative class mixes a balanced sample of the dataset's other spoken words with 1-second chunks cut from its `_background_noise_` recordings, so the model learns to stay quiet through both other speech and ambient noise/silence, not just one or the other. The wake word is a command-line argument to `prepare_data`, not hardcoded, so trying a different one is a rerun, not a code change.
+## 3. The data
 
-## Why GRU?
+The [Speech Commands dataset](https://storage.googleapis.com/download.tensorflow.org/data/speech_commands_v0.02.tar.gz) [1] is tens of thousands of one-second clips of single spoken words from thousands of speakers, recorded on their own devices, plus several minutes of background noise. The positive class is "marvin", one of two words the dataset's authors included to stand in for a wake word. The negative class mixes a balanced sample of the other spoken words with one-second chunks of the background-noise recordings, so the model learns to stay quiet through both other speech and ambient noise.
 
-Early versions of this example trained a plain RNN, a GRU, and an LSTM side by side -- the same three-way comparison [`fall_detection`](../fall_detection/README.md) runs on its own synthetic task. Unlike that comparison, where all three architectures reached the same ceiling, on this real, noisier task they didn't: measured on the held-out `test.csv` split (one comparison run, real data, not something regenerated fresh and identical every time the way the synthetic examples' numbers are):
+`prepare_data.c` turns every clip into one CSV row of features, through the same `audio_features.[ch]` code the device runs, and `../../split.py` splits the 4,402 rows 80/10/10: 3,521 for training, 440 for validation and 441 for testing. The wake word is a command-line argument, so training on a different word is a rerun, not a code change.
 
-| Architecture | Test accuracy | False-reject | False-accept |
-|---|---|---|---|
-| Plain RNN | ~81% | ~9% | ~29% |
-| **GRU** | **~88%** | **~8%** | **~17%** |
-| LSTM | ~77% | ~45% | ~4% |
+<p align="center">
+  <img src="figures/audio.svg" alt="Waveforms and log-mel feature images for three one-second clips: the word 'marvin' with two voiced syllables, the word 'house' from the same speaker with one burst and a hissing ending, and background noise from a running tap that fills all bands evenly." width="900">
+</p>
+<p align="center"><sub><b>Figure 2.</b> Three clips as the network sees them: waveform (top) and the 49 × 20 normalized log-mel features (bottom, darker = more energy). "marvin" and "house" are the same speaker. Normalizing each clip to zero mean and unit variance removes loudness, so even quiet noise fills the scale.</sub></p>
 
-GRU won clearly and consistently, so it's the only architecture kept here now -- unlike `fall_detection`, which keeps its three-way comparison because none of its architectures came out ahead on its task. `NN_OPTIMIZER_ADAM` was also tried on the plain RNN (it dramatically helped `fall_detection`'s own plain RNN on its synthetic task) and made things *worse* here at two different learning rates -- a good reminder that a fix measured on one task doesn't necessarily transfer to another, even for the same architecture. If you want to see any of this for yourself, the RNN/LSTM/Adam code no longer ships in this directory, but reconstructing it from `train.c` is a small, mechanical change (swap `LAYER_TYPE_GRU` for `LAYER_TYPE_RNN`/`LAYER_TYPE_LSTM`).
+## 4. Method
 
-Two things mattered more than architecture choice, though, and both are worth knowing if you're adapting this example:
+### 4.1 Features
 
-- **Per-clip feature normalization** (in `audio_features_extract_sequence()`) was the single biggest lever -- real recordings vary hugely in loudness and spectral tilt, and without normalizing that away, training was noisy and every architecture scored 15-20 points lower.
-- **Learning rate**: the other RNN examples' plain-SGD rate of 0.05 was too large for this noisier, real-audio task and made validation error bounce instead of settle. A small sweep (0.003-0.03, several training runs each, since random init/shuffling isn't seeded and single-run test accuracy on this real dataset swings by several points) found 0.03 both the highest-scoring and the most consistent of the values tried (~87-89% test accuracy, avg ~88%, vs. lower and more erratic results at 0.01-0.02) -- see `train.c`'s tunable hyperparameters.
-- **Dropout did *not* help -- even after fixing a real bug it exposed.** Training error dropping to near-zero while validation error stayed noisy looked like classic overfitting in the GRU layer (nearly all of this network's ~5,121 parameters), so `LAYER_TYPE_DROPOUT` was tried between the GRU and output layers, the same way `character_recognition/train_cnn.c` uses it on its highest-capacity FC layer. Measured across several runs at two rates, it made things worse (0.3: avg ~85%; 0.1: avg ~84%; vs. no dropout's avg ~88%). The first suspect was that the library resampled a dropout mask fresh on every `nn_train()` call, injecting a *different* random mask into the GRU's hidden state on every one of a clip's 49 per-timestep frames instead of holding one consistent mask for the whole sequence (the "locked"/variational dropout technique effective RNN dropout needs). That was real, and is now fixed at the library level (see the root README's Dropout entry and `dropout_mask_valid` in nn.h) -- a dropout layer in any network with a recurrent layer now auto-detects that and holds its mask until `nn_reset_state()`. Retested with the fix in place, though, dropout at 0.3 still scored ~83% here -- no better than before. So the resampling bug was worth fixing on its own correctness merits (and may help other recurrent+dropout networks), but it wasn't the full explanation for dropout underperforming on this specific model/dataset. Left out either way; see `train.c`'s comment at the GRU layer for the same finding in code.
+`audio_features_extract_sequence()` computes, for each one-second clip:
 
-## Model architecture
+| Step | Setting |
+|---|---|
+| Frames | 512 samples (32 ms), every 320 samples (20 ms): 49 frames per clip |
+| Spectrum | Hann window, 512-point FFT, power |
+| Mel filterbank | 20 triangular bands evenly spaced on the mel scale, 0-8 kHz |
+| Compression | natural log of each band's energy |
+| Normalization | all 980 values of the clip shifted and scaled to mean 0, variance 1 |
+
+Per-clip normalization matters: real recordings vary enormously in loudness and microphone response, and normalizing removes that before the network sees anything.
+
+### 4.2 Network
+
+<p align="center">
+  <img src="figures/architecture.svg" alt="Pipeline: microphone at 16 kHz, frames of 512 samples every 320, Hann window, FFT and 20 log-mel bands, per-clip normalization; then each 20-value frame into a 32-unit GRU with a recurrent hidden state across the clip's 49 frames, a sigmoid output for wake-word probability, and a decision after the last frame: wake word if at least 0.5." width="900">
+</p>
+<p align="center"><sub><b>Figure 3.</b> The pipeline. The GRU reads one frame per call and carries its hidden state across the clip; the decision is made on its output after the last frame.</sub></p>
 
 | Layer | Type | Output shape | Notes |
 |---|---|---|---|
-| 0 | Input | `NUM_MEL_BINS` (one frame) | fed once per frame -- see `wake_word_data.h` |
-| 1 | GRU | 32 | fixed gate nonlinearities; carries persistent state across the SEQUENCE_LEN frames of one clip |
-| 2 | Output | 1 | Sigmoid -- wake-word probability |
+| 0 | Input | 20 | one log-mel frame per call |
+| 1 | GRU | 32 | reset and update gates; hidden state carried across the clip's 49 frames |
+| 2 | Output | 1 | Sigmoid: wake-word probability |
 
-`wake_word_data.h`'s defaults (16kHz, 512-sample/32ms frames, 320-sample/20ms hop, 20 mel bins) give `SEQUENCE_LEN` = 49 frames per 1-second clip. Every frame of one clip is trained against the SAME label -- the whole clip either is or isn't the wake word -- following [`gesture_recognition`'s](../gesture_recognition/README.md) "one label repeated every timestep" scheme rather than `fall_detection`'s per-timestep-varying one (see `train.c`'s top comment).
+5,121 trainable parameters, nearly all in the GRU. `nn_reset_state()` clears the hidden state before each clip. During training, every frame of a clip is trained against the clip's label; at test time the output after the 49th frame is compared with 0.5. Training uses plain SGD at a learning rate of 0.03, multiplied by 0.97 each epoch, and stops once validation error hasn't improved for 5 epochs.
 
-## Build and run
+## 5. Results
+
+Weight initialization and shuffling aren't seeded, so every training run differs. Seven runs of `train` and `test`, each on the same 441 held-out clips (217 "marvin", 224 others):
+
+<p align="center">
+  <img src="figures/runs.svg" alt="Dot plot of seven runs: accuracy between 78 and 89 percent, median 85.3; false-reject rate between 6 and 26 percent, median 15.7; false-accept rate between 4 and 23 percent, median 14.3." width="760">
+</p>
+<p align="center"><sub><b>Figure 4.</b> Seven training runs, each tested on the 441 held-out clips. Each dot is one run; the bar is the median.</sub></p>
+
+| | Median | Range over 7 runs |
+|---|---|---|
+| Accuracy | 85.3% | 78.2-89.1% |
+| False-reject rate (missed "marvin") | 15.7% | 6.0-26.3% |
+| False-accept rate (other audio taken for "marvin") | 14.3% | 3.6-22.8% |
+
+Accuracy is fairly stable, but **where the errors fall varies a lot between runs**: one run missed 26% of the wake words while almost never triggering falsely (3.6%), another missed only 6% while triggering on 16% of other clips. Each run's 0.5 threshold lands at a different point on the trade-off between the two errors. A product would choose that point deliberately — a doorbell can afford a few false wake-ups, a device that records after waking can't — by setting the threshold on validation data rather than leaving it at 0.5.
+
+`predict` shows the same decision on single files. With one of the trained models above, a "marvin" clip scores 0.989 and a "house" clip from the same speaker 0.008.
+
+## 6. Running on the device
+
+On the device, `audio_features.[ch]` and `../../fft.[ch]` run against the microphone buffer and `nn.[ch]` runs the GRU; `predict.c` is the same sequence of calls on a WAV file. Per second of audio, that is 49 512-point FFTs and 49 GRU steps of 32 units. The 5,121 weights are about 20 KB as 32-bit floats, and the repository's `quantize` and `export` tools convert a trained model to int8 and to the zero-copy inplace format for flash (see the top-level README). A real listener slides the one-second window along the stream rather than waiting for separate clips.
+
+## 7. Limitations
+
+- **The split is by clip, not by speaker.** `split.py` shuffles clips randomly, so test clips can come from speakers who also contributed training clips. Speech Commands publishes speaker-separated validation and test lists; using them would measure how the model does on new voices, which is what a product needs.
+- **One-second, pre-cut clips.** Every clip is one word within a second of audio. A live microphone stream has words at arbitrary offsets, overlapping speech and long silences; streaming detection needs the window to slide and a rule for not triggering twice on one utterance.
+- **One fixed threshold.** The 0.5 decision point isn't tuned; see section 5.
+- **Small model, small data.** About 2,100 examples of the wake word; production wake-word models train on far more, from far more speakers.
+
+## Appendix A. Build and run
 
 ```
 cd examples/wake_word_detection
 make
 ```
 
-The first `make` downloads and extracts the ~2.4GB Speech Commands archive, builds `prepare_data` and runs it to produce `samples.csv`, splits that into `train.csv`/`validation.csv`/`test.csv` via `../../split.py`, and builds `train`/`test`/`predict`. Expect the first run to take a while; `make clean` doesn't re-download or re-extract the dataset (only `make distclean` does).
+The first `make` downloads and extracts the ~2.4 GB Speech Commands archive, builds `prepare_data` and runs it to produce `samples.csv`, splits that into `train.csv`, `validation.csv` and `test.csv`, and builds `train`, `test` and `predict`. `make clean` keeps the dataset; `make distclean` removes it.
 
-Train the model:
-```
-./train wake_word_model.txt
-```
+| Command | What it does |
+|---|---|
+| `./train wake_word_model.txt` | trains the GRU (seconds) |
+| `./test wake_word_model.txt` | accuracy, false-reject and false-accept rates on `test.csv` |
+| `./predict wake_word_model.txt dataset/marvin/<file>.wav` | the wake-word probability of one WAV file, the way an application would get it |
+| `./prepare_data dataset samples.csv sheila` | rebuilds the features for a different wake word (then re-split with `python ../../split.py samples.csv --train 0.8 --validation 0.1` and train a new model) |
 
-Evaluate it against the held-out `test.csv` split and print accuracy, false-reject rate, and false-accept rate:
-```
-./test wake_word_model.txt
-```
+The figures in this document are generated by `tools/docs/wake_word_detection.py`.
 
-Run it against a single WAV file (e.g. a clip from `dataset/marvin/` or `dataset/<some other word>/`), the way an application would:
-```
-./predict wake_word_model.txt dataset/marvin/<some-file>.wav
-```
+## Appendix B. Program output
 
-To try a different wake word, rerun `prepare_data` directly and re-split, then train a fresh model against the new `train.csv`/`validation.csv`:
-```
-./prepare_data dataset samples.csv sheila
-python ../../split.py samples.csv --train 0.8 --validation 0.1
-./train wake_word_model_sheila.txt
-```
+`./train wake_word_model.txt` (one of the seven runs in figure 4):
 
-## Sample output
-
-`train.c` prints the same shape of training log as `fall_detection`/`character_recognition` -- a header line, one `train error, validation error, learning rate` row per epoch, early stopping once validation error stops improving, then a final summary:
 ```
+Creating new model.
 train error, validation error, learning rate
+0.05437, 0.09123, 0.03000
+0.04301, 0.10277, 0.02910
+0.04194, 0.16661, 0.02823
+0.04199, 0.08007, 0.02738
 ...
-No validation improvement for 5 epochs (best: <your run's number>) -- stopping early.
-Final (last epoch) train error: <...>, validation error: <...>
-Best validation error (the model saved to disk): <...>
-Training epochs: <...>
-Validation accuracy: <correct>/<total> = <...>%
-False rejects (missed wake word): <...>/<...> = <...>%
-False accepts (wrongly triggered): <...>/<...> = <...>%
+0.03697, 0.11497, 0.02351
+No validation improvement for 5 epochs (best: 0.08007) -- stopping early.
+Final (last epoch) train error: 0.036972, validation error: 0.114969
+Best validation error (the model saved to disk): 0.080068
+Training epochs: 9
+Validation accuracy: 291/440 = 66.14%
+False rejects (missed wake word): 146/206 = 70.9%
+False accepts (wrongly triggered): 3/234 = 1.3%
 ```
 
-`./test wake_word_model.txt` against the held-out test split:
+The closing validation figures are for the *last* epoch's weights, still in memory; the model saved to disk is the epoch with the best validation error, which `test` evaluates:
+
 ```
-Test clips: <total> (<wake word> wake word, <other> other), 49 frames each
-Accuracy: <correct>/<total> = <...>%
-False-reject rate (missed wake word): <...>/<...> = <...>%
-False-accept rate (wrongly triggered): <...>/<...> = <...>%
+Test clips: 441 (217 wake word, 224 other), 49 frames each
+Accuracy: 382/441 = 86.62%
+False-reject rate (missed wake word): 34/217 = 15.7%
+False-accept rate (wrongly triggered): 25/224 = 11.2%
 ```
 
-The exact numbers vary run to run (random weight init and shuffling aren't seeded), but should land in the neighborhood of the [Why GRU](#why-gru) table above.
+`./predict wake_word_model.txt` on a "marvin" clip and a "house" clip from the same speaker:
+
+```
+$ ./predict wake_word_model.txt dataset/marvin/00b01445_nohash_0.wav
+Wake-word probability: 0.98928
+$ ./predict wake_word_model.txt dataset/house/00b01445_nohash_0.wav
+Wake-word probability: 0.00754
+```
+
+## References
+
+1. P. Warden, "[Speech Commands: a dataset for limited-vocabulary speech recognition](https://arxiv.org/abs/1804.03209)," arXiv:1804.03209, 2018.
+2. K. Cho et al., "Learning phrase representations using RNN encoder-decoder for statistical machine translation," *EMNLP*, 2014 (the GRU).

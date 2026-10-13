@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 400" width="1600" height="400">
+  <title>Gesture Recognition</title>
+  <rect width="1600" height="400" fill="#fcfcfb"/>
+  <rect x="0" y="0" width="1600" height="8" fill="#2a78d6"/>
+  <text x="72" y="84" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#2a78d6" text-anchor="start" letter-spacing="2.2">EXAMPLE 02  ·  WEARABLES · SIMULATED DATA</text>
+  <text x="72" y="152" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="58" font-weight="700" fill="#0b0b0b" text-anchor="start" letter-spacing="-0.5">Gesture Recognition</text>
+  <text x="72" y="206" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="24" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">Recognizing a shake or a tilt from a wearable's</text>
+  <text x="72" y="240" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="24" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">accelerometer, one sample at a time, with a recurrent network.</text>
+  <rect x="1010" y="112" width="168" height="3" fill="#2a78d6"/>
+  <text x="1010" y="176" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="44" font-weight="650" fill="#0b0b0b" text-anchor="start" letter-spacing="-0.5">100%</text>
+  <text x="1010" y="208" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">test accuracy,</text>
+  <text x="1010" y="230" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">200 new windows</text>
+  <rect x="1206" y="112" width="168" height="3" fill="#2a78d6"/>
+  <text x="1206" y="176" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="44" font-weight="650" fill="#0b0b0b" text-anchor="start" letter-spacing="-0.5">388</text>
+  <text x="1206" y="208" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">parameters</text>
+  <text x="1206" y="230" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">in total</text>
+  <rect x="1402" y="112" width="168" height="3" fill="#2a78d6"/>
+  <text x="1402" y="176" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="44" font-weight="650" fill="#0b0b0b" text-anchor="start" letter-spacing="-0.5">1.5 KB</text>
+  <text x="1402" y="208" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">model,</text>
+  <text x="1402" y="230" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">32-bit floats</text>
+  <rect x="72" y="320" width="1456" height="1" fill="#e1e0d9"/>
+  <text x="72" y="358" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="500" fill="#898781" text-anchor="start" letter-spacing="0.3">3-axis accelerometer   ·   Synthetic gestures   ·   RNN, 16 units   ·   Truncated BPTT   ·   Microcontroller</text>
+</svg>

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1538 252" width="1538" height="252">
+  <title>Image classification CNN (train.c)</title>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker></defs>
+  <rect width="1538" height="252" fill="#fcfcfb"/>
+  <rect x="30" y="40" width="182" height="120" rx="12" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+  <text x="121.0" y="78" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#1f2937">Input</text>
+  <text x="121.0" y="106" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15.5" fill="#374151">RGB, normalized</text>
+  <text x="121.0" y="128" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15.5" fill="#374151">per image</text>
+  <text x="121.0" y="194" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#52514e">48×48×3</text>
+  <rect x="246" y="40" width="182" height="120" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="337.0" y="78" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#1f2937">Stage 1</text>
+  <text x="337.0" y="106" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15.5" fill="#374151">5×5 conv, 8 filters</text>
+  <text x="337.0" y="128" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15.5" fill="#374151">GELU · 2×2 max pool</text>
+  <text x="337.0" y="194" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#52514e">24×24×8</text>
+  <line x1="214" y1="100.0" x2="244" y2="100.0" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="462" y="40" width="182" height="120" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="553.0" y="78" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#1f2937">Stage 2</text>
+  <text x="553.0" y="106" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15.5" fill="#374151">3×3 conv, 16 filters</text>
+  <text x="553.0" y="128" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15.5" fill="#374151">GELU · 2×2 max pool</text>
+  <text x="553.0" y="194" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#52514e">12×12×16</text>
+  <line x1="430" y1="100.0" x2="460" y2="100.0" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="678" y="40" width="182" height="120" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="769.0" y="78" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#1f2937">Stage 3</text>
+  <text x="769.0" y="106" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15.5" fill="#374151">3×3 conv, 32 filters</text>
+  <text x="769.0" y="128" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15.5" fill="#374151">GELU · 2×2 max pool</text>
+  <text x="769.0" y="194" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#52514e">6×6×32</text>
+  <line x1="646" y1="100.0" x2="676" y2="100.0" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="894" y="40" width="182" height="120" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="985.0" y="78" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#1f2937">Stage 4</text>
+  <text x="985.0" y="106" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15.5" fill="#374151">3×3 conv, 64 filters</text>
+  <text x="985.0" y="128" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15.5" fill="#374151">GELU · 2×2 max pool</text>
+  <text x="985.0" y="194" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#52514e">3×3×64</text>
+  <line x1="862" y1="100.0" x2="892" y2="100.0" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="1110" y="40" width="182" height="120" rx="12" fill="#ccfbf1" stroke="#0d9488" stroke-width="2"/>
+  <text x="1201.0" y="78" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#1f2937">Global avg pool</text>
+  <text x="1201.0" y="106" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15.5" fill="#374151">one value per</text>
+  <text x="1201.0" y="128" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15.5" fill="#374151">feature map</text>
+  <text x="1201.0" y="194" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#52514e">1×1×64</text>
+  <line x1="1078" y1="100.0" x2="1108" y2="100.0" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="1326" y="40" width="182" height="120" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+  <text x="1417.0" y="78" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#1f2937">Output</text>
+  <text x="1417.0" y="106" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15.5" fill="#374151">softmax</text>
+  <text x="1417.0" y="128" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15.5" fill="#374151">cat · dog</text>
+  <text x="1417.0" y="194" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#52514e">2</text>
+  <line x1="1294" y1="100.0" x2="1324" y2="100.0" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="769.0" y="236" text-anchor="middle" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15" fill="#898781">25,042 parameters · 3.4 million multiply-adds per image · 36,244 bytes as an int8 inplace model</text>
+</svg>

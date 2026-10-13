@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1520 600" width="1520" height="600">
+  <title>Fall-detection pendant: worn on the chest, watching an accelerometer stream for a fall</title>
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#dfe7f1"/>
+      <stop offset="1" stop-color="#c7d3e2"/>
+    </linearGradient>
+    <linearGradient id="case" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4f3ef"/>
+      <stop offset="1" stop-color="#dcdad3"/>
+    </linearGradient>
+  </defs>
+  <rect width="1520" height="600" fill="#fcfcfb"/>
+  <g font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">
+
+    <!-- Standing: everyday activity -->
+    <g>
+      <circle cx="190" cy="150" r="38" fill="url(#body)" stroke="#9fb0c5" stroke-width="2"/>
+      <path d="M 140 210 C 140 196 152 190 166 190 L 214 190 C 228 190 240 196 240 210 L 248 352 C 248 362 240 368 230 368 L 150 368 C 140 368 132 362 132 352 Z" fill="url(#body)" stroke="#9fb0c5" stroke-width="2"/>
+      <path d="M 140 214 L 108 340" stroke="#9fb0c5" stroke-width="22" stroke-linecap="round"/>
+      <path d="M 240 214 L 272 340" stroke="#9fb0c5" stroke-width="22" stroke-linecap="round"/>
+      <path d="M 166 368 L 160 520" stroke="#9fb0c5" stroke-width="26" stroke-linecap="round"/>
+      <path d="M 214 368 L 220 520" stroke="#9fb0c5" stroke-width="26" stroke-linecap="round"/>
+      <path d="M 170 192 L 190 250 L 210 192" fill="none" stroke="#6f6d68" stroke-width="2"/>
+      <rect x="178" y="248" width="24" height="32" rx="8" fill="url(#case)" stroke="#6f6d68" stroke-width="2"/>
+      <circle cx="190" cy="264" r="5" fill="#2a78d6"/>
+      <text x="190" y="568" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Everyday activity</text>
+    </g>
+
+    <!-- Falling -->
+    <g transform="rotate(38 470 330)" opacity="0.92">
+      <circle cx="470" cy="150" r="38" fill="url(#body)" stroke="#9fb0c5" stroke-width="2"/>
+      <path d="M 420 210 C 420 196 432 190 446 190 L 494 190 C 508 190 520 196 520 210 L 528 352 C 528 362 520 368 510 368 L 430 368 C 420 368 412 362 412 352 Z" fill="url(#body)" stroke="#9fb0c5" stroke-width="2"/>
+      <path d="M 420 214 L 370 300" stroke="#9fb0c5" stroke-width="22" stroke-linecap="round"/>
+      <path d="M 520 214 L 580 280" stroke="#9fb0c5" stroke-width="22" stroke-linecap="round"/>
+      <path d="M 446 368 L 430 510" stroke="#9fb0c5" stroke-width="26" stroke-linecap="round"/>
+      <path d="M 494 368 L 520 500" stroke="#9fb0c5" stroke-width="26" stroke-linecap="round"/>
+      <rect x="458" y="248" width="24" height="32" rx="8" fill="url(#case)" stroke="#6f6d68" stroke-width="2"/>
+      <circle cx="470" cy="264" r="5" fill="#2a78d6"/>
+    </g>
+
+    <!-- Down: after the fall -->
+    <g>
+      <rect x="600" y="500" width="380" height="8" rx="4" fill="#e1e0d9"/>
+      <circle cx="660" cy="462" r="34" fill="url(#body)" stroke="#9fb0c5" stroke-width="2"/>
+      <rect x="700" y="436" width="160" height="62" rx="16" fill="url(#body)" stroke="#9fb0c5" stroke-width="2"/>
+      <path d="M 860 452 L 960 446" stroke="#9fb0c5" stroke-width="24" stroke-linecap="round"/>
+      <path d="M 860 482 L 956 488" stroke="#9fb0c5" stroke-width="24" stroke-linecap="round"/>
+      <path d="M 730 498 L 790 494" stroke="#9fb0c5" stroke-width="20" stroke-linecap="round"/>
+      <rect x="742" y="418" width="32" height="24" rx="8" fill="url(#case)" stroke="#6f6d68" stroke-width="2"/>
+      <circle cx="758" cy="430" r="5" fill="#e34948"/>
+      <path d="M 776 398 C 790 384 790 366 776 352 M 792 408 C 814 386 814 360 792 340" fill="none" stroke="#e34948" stroke-width="2.5" stroke-linecap="round"/>
+    </g>
+
+    <!-- Phase labels along the timeline -->
+    <rect x="80" y="40" width="900" height="2" fill="#e1e0d9"/>
+    <g font-size="15" fill="#52514e" text-anchor="middle">
+      <circle cx="190" cy="41" r="5" fill="#2a78d6"/>
+      <text x="190" y="28">steady ~1 g</text>
+      <circle cx="420" cy="41" r="5" fill="#eb6834"/>
+      <text x="420" y="28">free fall, then impact</text>
+      <circle cx="780" cy="41" r="5" fill="#e34948"/>
+      <text x="780" y="28">stillness, new orientation → alert</text>
+    </g>
+    <text x="470" y="568" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Fall</text>
+    <text x="790" y="568" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Down, and not getting up</text>
+
+    <!-- Pendant cross-section inset -->
+    <g transform="translate(1250 300)">
+      <rect x="-170" y="-190" width="340" height="380" rx="70" fill="url(#case)" stroke="#8b8983" stroke-width="2.5"/>
+      <rect x="-130" y="-150" width="260" height="300" rx="40" fill="#f9f9f7" stroke="#c3c2b7" stroke-width="1.5"/>
+      <rect x="-100" y="-118" width="200" height="74" rx="10" fill="#2a78d6"/>
+      <text y="-86" font-size="15" font-weight="600" fill="#ffffff" text-anchor="middle">3-axis accelerometer</text>
+      <text y="-64" font-size="13" fill="#cde2fb" text-anchor="middle">x, y, z every timestep</text>
+      <rect x="-100" y="-30" width="200" height="74" rx="10" fill="#1c5cab"/>
+      <text y="2" font-size="15" font-weight="600" fill="#ffffff" text-anchor="middle">Microcontroller</text>
+      <text y="24" font-size="13" fill="#cde2fb" text-anchor="middle">16-unit recurrent network</text>
+      <rect x="-100" y="58" width="94" height="58" rx="10" fill="#e1e0d9"/>
+      <text x="-53" y="92" font-size="14" fill="#52514e" text-anchor="middle">battery</text>
+      <rect x="6" y="58" width="94" height="58" rx="10" fill="#e1e0d9"/>
+      <text x="53" y="92" font-size="14" fill="#52514e" text-anchor="middle">radio</text>
+      <text y="-218" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Inside the pendant</text>
+      <text y="226" font-size="15" fill="#52514e" text-anchor="middle">always on, decides on the device,</text>
+      <text y="247" font-size="15" fill="#52514e" text-anchor="middle">sends only the alert</text>
+    </g>
+    <path d="M 202 262 C 500 160 900 120 1080 200" fill="none" stroke="#c3c2b7" stroke-width="1.5" stroke-dasharray="4 5"/>
+  </g>
+</svg>

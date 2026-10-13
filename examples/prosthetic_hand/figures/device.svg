@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1520 600" width="1520" height="600">
+  <title>Myoelectric prosthesis: where the electrodes, electronics and motors sit</title>
+  <defs>
+    <linearGradient id="skin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#efe6dc"/>
+      <stop offset="1" stop-color="#ddcfc0"/>
+    </linearGradient>
+    <linearGradient id="shell" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5b5a57"/>
+      <stop offset="0.5" stop-color="#3d3c3a"/>
+      <stop offset="1" stop-color="#2b2a29"/>
+    </linearGradient>
+    <linearGradient id="hand" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e9e8e4"/>
+      <stop offset="1" stop-color="#c9c7c0"/>
+    </linearGradient>
+    <linearGradient id="rotator" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9a9892"/>
+      <stop offset="0.5" stop-color="#cfcdc6"/>
+      <stop offset="1" stop-color="#8b8983"/>
+    </linearGradient>
+  </defs>
+  <rect width="1520" height="600" fill="#fcfcfb"/>
+
+  <!-- Upper arm and residual forearm -->
+  <path d="M 40 196 C 140 186 230 190 300 206 L 300 374 C 230 392 140 396 40 388 Z" fill="url(#skin)" stroke="#b9ab9b" stroke-width="2"/>
+  <path d="M 300 206 C 340 214 380 226 420 240 L 420 340 C 380 356 340 366 300 374 Z" fill="url(#skin)" stroke="#b9ab9b" stroke-width="2"/>
+  <text x="120" y="430" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15" fill="#898781">upper arm</text>
+
+  <!-- Socket shell (cut away along the top to show the electrode band) -->
+  <path d="M 330 196 L 700 226 C 730 230 748 248 752 270 L 752 312 C 748 334 730 352 700 356 L 330 386 C 318 352 314 230 330 196 Z" fill="url(#shell)"/>
+  <path d="M 345 214 L 690 240 C 712 244 728 258 730 276 L 730 306 C 728 324 712 338 690 342 L 345 368 C 336 336 334 246 345 214 Z" fill="#e7e4dc"/>
+  <!-- Residual limb inside the socket -->
+  <path d="M 345 222 C 420 232 500 246 560 262 C 600 274 612 290 600 310 C 588 328 520 342 460 352 L 345 362 C 338 330 338 252 345 222 Z" fill="url(#skin)" stroke="#b9ab9b" stroke-width="1.5"/>
+
+  <!-- Electrode band: 8 dry electrodes, the visible half -->
+  <rect x="452" y="232" width="34" height="132" rx="10" fill="none" stroke="#eb6834" stroke-width="2" stroke-dasharray="5 4"/>
+  <g fill="#eb6834" stroke="#fcfcfb" stroke-width="2">
+    <rect x="460" y="238" width="18" height="14" rx="3"/>
+    <rect x="460" y="270" width="18" height="14" rx="3"/>
+    <rect x="460" y="302" width="18" height="14" rx="3"/>
+    <rect x="460" y="334" width="18" height="14" rx="3"/>
+  </g>
+
+  <!-- Electronics: analog front end, MCU, battery -->
+  <rect x="616" y="262" width="96" height="58" rx="8" fill="#2a78d6"/>
+  <rect x="628" y="274" width="32" height="34" rx="3" fill="#cde2fb"/>
+  <rect x="668" y="274" width="32" height="34" rx="3" fill="#cde2fb"/>
+  <path d="M 486 291 C 540 291 560 291 616 291" stroke="#2a78d6" stroke-width="2" fill="none"/>
+
+  <!-- Wrist rotator -->
+  <rect x="752" y="248" width="70" height="86" rx="10" fill="url(#rotator)" stroke="#6f6d68" stroke-width="1.5"/>
+  <path d="M 770 248 L 770 334 M 788 248 L 788 334 M 806 248 L 806 334" stroke="#6f6d68" stroke-width="1"/>
+  <path d="M 787 222 C 812 222 830 238 832 256" fill="none" stroke="#1c5cab" stroke-width="2.5"/>
+  <path d="M 828 250 L 832 260 L 838 251 Z" fill="#1c5cab"/>
+  <path d="M 787 360 C 762 360 744 344 742 326" fill="none" stroke="#1c5cab" stroke-width="2.5"/>
+  <path d="M 746 332 L 742 322 L 736 331 Z" fill="#1c5cab"/>
+
+  <!-- Powered hand -->
+  <path d="M 822 244 C 870 230 930 228 980 236 C 998 240 1004 256 1000 270 L 990 330 C 984 346 960 356 930 356 L 860 352 C 838 350 822 340 822 326 Z" fill="url(#hand)" stroke="#8b8983" stroke-width="2"/>
+  <g fill="url(#hand)" stroke="#8b8983" stroke-width="2">
+    <rect x="996" y="232" width="118" height="26" rx="13"/>
+    <rect x="1000" y="262" width="128" height="26" rx="13"/>
+    <rect x="998" y="292" width="122" height="26" rx="13"/>
+    <rect x="990" y="322" width="104" height="24" rx="12"/>
+    <rect x="884" y="226" width="104" height="26" rx="13" transform="rotate(-20 884 252)"/>
+  </g>
+
+  <!-- Callouts -->
+  <g font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">
+    <path d="M 469 232 L 469 110" stroke="#898781" stroke-width="1"/>
+    <circle cx="469" cy="232" r="3" fill="#898781"/>
+    <text x="469" y="80" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Electrode ring</text>
+    <text x="469" y="101" font-size="15" fill="#52514e" text-anchor="middle">8 dry surface electrodes</text>
+
+    <path d="M 664 262 L 664 160" stroke="#898781" stroke-width="1"/>
+    <circle cx="664" cy="262" r="3" fill="#898781"/>
+    <text x="664" y="130" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Controller</text>
+    <text x="664" y="151" font-size="15" fill="#52514e" text-anchor="middle">ADS1298 front end + STM32U585</text>
+
+    <path d="M 787 360 L 787 470" stroke="#898781" stroke-width="1"/>
+    <text x="787" y="494" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Wrist rotator</text>
+    <text x="787" y="515" font-size="15" fill="#52514e" text-anchor="middle">pronation / supination</text>
+
+    <path d="M 960 356 L 960 470" stroke="#898781" stroke-width="1"/>
+    <text x="1000" y="494" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Powered hand</text>
+    <text x="1000" y="515" font-size="15" fill="#52514e" text-anchor="middle">open / close</text>
+
+    <path d="M 540 382 L 540 470" stroke="#898781" stroke-width="1"/>
+    <text x="540" y="494" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Socket</text>
+    <text x="540" y="515" font-size="15" fill="#52514e" text-anchor="middle">over the residual forearm</text>
+  </g>
+
+  <!-- Cross-section inset -->
+  <g transform="translate(1330 296)">
+    <circle r="118" fill="#3d3c3a"/>
+    <circle r="104" fill="#e7e4dc"/>
+    <circle r="96" fill="url(#skin)" stroke="#b9ab9b" stroke-width="1.5"/>
+    <!-- muscle compartments: flexors (palm side, below) and extensors (back of the forearm, above) -->
+    <path d="M -84 18 A 86 86 0 0 0 84 18 L 40 10 C 20 30 -20 30 -40 10 Z" fill="#e34948" fill-opacity="0.18"/>
+    <path d="M -84 -14 A 86 86 0 0 1 84 -14 L 40 -6 C 20 -26 -20 -26 -40 -6 Z" fill="#2a78d6" fill-opacity="0.16"/>
+    <circle cx="-28" cy="2" r="15" fill="#f5f1ea" stroke="#b9ab9b" stroke-width="1.5"/>
+    <circle cx="30" cy="4" r="12" fill="#f5f1ea" stroke="#b9ab9b" stroke-width="1.5"/>
+    <g fill="#eb6834" stroke="#fcfcfb" stroke-width="2">
+      <rect x="-9" y="-108" width="18" height="14" rx="3" transform="rotate(0)"/>
+      <rect x="-9" y="-108" width="18" height="14" rx="3" transform="rotate(45)"/>
+      <rect x="-9" y="-108" width="18" height="14" rx="3" transform="rotate(90)"/>
+      <rect x="-9" y="-108" width="18" height="14" rx="3" transform="rotate(135)"/>
+      <rect x="-9" y="-108" width="18" height="14" rx="3" transform="rotate(180)"/>
+      <rect x="-9" y="-108" width="18" height="14" rx="3" transform="rotate(225)"/>
+      <rect x="-9" y="-108" width="18" height="14" rx="3" transform="rotate(270)"/>
+      <rect x="-9" y="-108" width="18" height="14" rx="3" transform="rotate(315)"/>
+    </g>
+    <g font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" text-anchor="middle">
+      <text y="-44" font-size="14" fill="#1c5cab" font-weight="600">extensors</text>
+      <text y="58" font-size="14" fill="#a92f2e" font-weight="600">flexors</text>
+      <text y="-150" font-size="17" font-weight="600" fill="#0b0b0b">Cross-section at the electrode ring</text>
+      <text y="166" font-size="15" fill="#52514e">8 electrodes, evenly spaced</text>
+      <text y="187" font-size="15" fill="#52514e">around the forearm</text>
+    </g>
+  </g>
+</svg>

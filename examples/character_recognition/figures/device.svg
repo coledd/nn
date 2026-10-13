@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1520 600" width="1520" height="600">
+  <title>A handwriting pad reading a digit on an STM32H7</title>
+  <defs>
+    <linearGradient id="case" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5b5a57"/>
+      <stop offset="1" stop-color="#2b2a29"/>
+    </linearGradient>
+    <linearGradient id="pen" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#9a9892"/>
+      <stop offset="0.5" stop-color="#d9d7d0"/>
+      <stop offset="1" stop-color="#8b8983"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#52514e"/>
+    </marker>
+  </defs>
+  <rect width="1520" height="600" fill="#fcfcfb"/>
+
+  <!-- Device body -->
+  <rect x="80" y="90" width="430" height="380" rx="34" fill="url(#case)"/>
+  <rect x="104" y="114" width="382" height="300" rx="14" fill="#f5f4f0"/>
+  <!-- the handwritten 8 on the touch surface -->
+  <path d="M 300 160 C 250 160 236 200 262 222 C 284 242 328 252 334 292 C 340 338 306 360 290 360 C 262 360 236 342 244 304 C 252 268 300 250 318 222 C 338 192 330 160 300 160 Z" fill="none" stroke="#0b0b0b" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- stylus -->
+  <g transform="rotate(32 420 250)">
+    <rect x="404" y="80" width="26" height="190" rx="8" fill="url(#pen)" stroke="#6f6d68" stroke-width="1.5"/>
+    <path d="M 404 270 L 417 304 L 430 270 Z" fill="#3d3c3a"/>
+  </g>
+  <!-- result strip -->
+  <rect x="104" y="424" width="382" height="34" rx="8" fill="#0d366b"/>
+  <text x="295" y="447" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="700" fill="#ffffff" text-anchor="middle">8 · 98.9%</text>
+
+  <!-- 28 x 28 grid the input is scaled to -->
+  <g transform="translate(640 150)">
+    <rect width="224" height="224" fill="#ffffff" stroke="#c3c2b7" stroke-width="1.5"/>
+    <g fill="#0b0b0b">
+      <rect x="80" y="48" width="40" height="8"/><rect x="72" y="56" width="72" height="8"/><rect x="72" y="64" width="24" height="8"/><rect x="120" y="64" width="24" height="8"/><rect x="72" y="72" width="24" height="8"/><rect x="120" y="72" width="24" height="8"/><rect x="72" y="80" width="24" height="8"/><rect x="120" y="80" width="24" height="8"/><rect x="80" y="88" width="16" height="8"/><rect x="120" y="88" width="16" height="8"/><rect x="80" y="96" width="40" height="8"/><rect x="88" y="104" width="32" height="8"/><rect x="80" y="112" width="48" height="8"/><rect x="72" y="120" width="32" height="8"/><rect x="120" y="120" width="24" height="8"/><rect x="72" y="128" width="16" height="8"/><rect x="128" y="128" width="24" height="8"/><rect x="72" y="136" width="16" height="8"/><rect x="136" y="136" width="24" height="8"/><rect x="72" y="144" width="8" height="8"/><rect x="136" y="144" width="24" height="8"/><rect x="72" y="152" width="24" height="8"/><rect x="136" y="152" width="24" height="8"/><rect x="80" y="160" width="80" height="8"/><rect x="104" y="168" width="48" height="8"/>
+    </g>
+    <text x="112" y="258" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15" fill="#52514e" text-anchor="middle">28 × 28, one bit per pixel</text>
+  </g>
+  <path d="M 520 262 L 626 262" stroke="#52514e" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- MCU -->
+  <g transform="translate(1000 150)">
+    <rect width="224" height="224" rx="18" fill="#2a78d6"/>
+    <rect x="34" y="34" width="156" height="156" rx="8" fill="#cde2fb"/>
+    <g stroke="#9ec5f4" stroke-width="5">
+      <path d="M 52 0 L 52 -14 M 92 0 L 92 -14 M 132 0 L 132 -14 M 172 0 L 172 -14"/>
+      <path d="M 52 224 L 52 238 M 92 224 L 92 238 M 132 224 L 132 238 M 172 224 L 172 238"/>
+      <path d="M 0 52 L -14 52 M 0 92 L -14 92 M 0 132 L -14 132 M 0 172 L -14 172"/>
+      <path d="M 224 52 L 238 52 M 224 92 L 238 92 M 224 132 L 238 132 M 224 172 L 238 172"/>
+    </g>
+    <text x="112" y="104" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#0d366b" text-anchor="middle">STM32H7</text>
+    <text x="112" y="130" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="14" fill="#1c5cab" text-anchor="middle">CNN, 100K params</text>
+  </g>
+  <path d="M 878 262 L 984 262" stroke="#52514e" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M 1262 262 L 1330 262" stroke="#52514e" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="1342" y="250" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="44" font-weight="700" fill="#0b0b0b">8</text>
+  <text x="1342" y="282" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15" fill="#52514e">digit + confidence</text>
+
+  <!-- Callouts -->
+  <g font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" text-anchor="middle">
+    <text x="295" y="514" font-size="17" font-weight="600" fill="#0b0b0b">Handwriting input</text>
+    <text x="295" y="535" font-size="15" fill="#52514e">touch pad, pen or camera</text>
+    <text x="752" y="514" font-size="17" font-weight="600" fill="#0b0b0b">Scaled and thresholded</text>
+    <text x="752" y="535" font-size="15" fill="#52514e">the image MNIST digits come in</text>
+    <text x="1112" y="514" font-size="17" font-weight="600" fill="#0b0b0b">Microcontroller</text>
+    <text x="1112" y="535" font-size="15" fill="#52514e">classifies it on the device</text>
+  </g>
+</svg>

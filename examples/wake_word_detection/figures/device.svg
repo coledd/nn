@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1520 600" width="1520" height="600">
+  <title>Always-on wake-word listener inside a voice-controlled device</title>
+  <defs>
+    <linearGradient id="shell" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#d9d7d0"/>
+      <stop offset="0.5" stop-color="#f1f0ec"/>
+      <stop offset="1" stop-color="#cfcdc6"/>
+    </linearGradient>
+    <linearGradient id="fabric" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#6f6d68"/>
+      <stop offset="0.5" stop-color="#8b8983"/>
+      <stop offset="1" stop-color="#5b5a57"/>
+    </linearGradient>
+  </defs>
+  <rect width="1520" height="600" fill="#fcfcfb"/>
+  <g font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">
+
+    <!-- What the device hears -->
+    <g>
+      <rect x="60" y="120" width="210" height="64" rx="32" fill="#2a78d6"/>
+      <path d="M 230 184 L 250 214 L 206 184 Z" fill="#2a78d6"/>
+      <text x="165" y="161" font-size="22" font-weight="600" fill="#ffffff" text-anchor="middle">“Marvin, …”</text>
+      <rect x="80" y="262" width="170" height="54" rx="27" fill="#e1e0d9"/>
+      <text x="165" y="295" font-size="18" fill="#52514e" text-anchor="middle">“house”</text>
+      <rect x="80" y="352" width="170" height="54" rx="27" fill="#e1e0d9"/>
+      <text x="165" y="385" font-size="18" fill="#52514e" text-anchor="middle">“go”, “stop”, …</text>
+      <rect x="80" y="442" width="170" height="54" rx="27" fill="#e1e0d9"/>
+      <text x="165" y="475" font-size="18" fill="#52514e" text-anchor="middle">running tap</text>
+      <g fill="none" stroke="#c3c2b7" stroke-width="2.5" stroke-linecap="round">
+        <path d="M 300 230 C 320 260 320 320 300 350"/>
+        <path d="M 330 210 C 360 250 360 330 330 370"/>
+        <path d="M 360 190 C 400 240 400 340 360 390"/>
+      </g>
+    </g>
+
+    <!-- The device: a smart speaker, cut away -->
+    <g>
+      <ellipse cx="560" cy="120" rx="130" ry="30" fill="#e9e8e4" stroke="#8b8983" stroke-width="2"/>
+      <path d="M 430 120 L 430 470 C 430 490 488 506 560 506 C 632 506 690 490 690 470 L 690 120" fill="url(#fabric)"/>
+      <ellipse cx="560" cy="120" rx="130" ry="30" fill="url(#shell)" stroke="#8b8983" stroke-width="2"/>
+      <g fill="#2a78d6">
+        <circle cx="510" cy="118" r="5"/><circle cx="560" cy="108" r="5"/><circle cx="610" cy="118" r="5"/><circle cx="560" cy="130" r="5"/>
+      </g>
+      <!-- cutaway window -->
+      <rect x="460" y="170" width="200" height="300" rx="14" fill="#f9f9f7" stroke="#c3c2b7" stroke-width="1.5"/>
+      <rect x="480" y="188" width="160" height="56" rx="10" fill="#cde2fb" stroke="#2a78d6" stroke-width="1.5"/>
+      <text x="560" y="212" font-size="14" font-weight="600" fill="#0d366b" text-anchor="middle">MEMS microphone</text>
+      <text x="560" y="232" font-size="12.5" fill="#1c5cab" text-anchor="middle">16 kHz</text>
+      <rect x="480" y="262" width="160" height="92" rx="10" fill="#2a78d6"/>
+      <text x="560" y="290" font-size="14" font-weight="600" fill="#ffffff" text-anchor="middle">Microcontroller</text>
+      <text x="560" y="310" font-size="12.5" fill="#cde2fb" text-anchor="middle">always on: log-mel</text>
+      <text x="560" y="328" font-size="12.5" fill="#cde2fb" text-anchor="middle">features + GRU</text>
+      <rect x="480" y="372" width="160" height="78" rx="10" fill="#e1e0d9"/>
+      <text x="560" y="403" font-size="14" font-weight="600" fill="#52514e" text-anchor="middle">Main processor</text>
+      <text x="560" y="423" font-size="12.5" fill="#52514e" text-anchor="middle">asleep until woken</text>
+      <path d="M 560 244 L 560 262 M 560 354 L 560 372" stroke="#1c5cab" stroke-width="2.5"/>
+    </g>
+
+    <!-- Callouts -->
+    <path d="M 640 216 L 760 216" stroke="#898781" stroke-width="1"/>
+    <text x="772" y="211" font-size="17" font-weight="600" fill="#0b0b0b">Listens continuously</text>
+    <text x="772" y="232" font-size="15" fill="#52514e">to its own microphone, a 1 s window at a time</text>
+    <path d="M 640 308 L 760 308" stroke="#898781" stroke-width="1"/>
+    <text x="772" y="303" font-size="17" font-weight="600" fill="#0b0b0b">Decides on the device</text>
+    <text x="772" y="324" font-size="15" fill="#52514e">is this “marvin”? no audio leaves the device to find out</text>
+    <path d="M 640 411 L 760 411" stroke="#898781" stroke-width="1"/>
+    <text x="772" y="406" font-size="17" font-weight="600" fill="#0b0b0b">Wakes the rest only for the wake word</text>
+    <text x="772" y="427" font-size="15" fill="#52514e">speech recognition, the network link: power they</text>
+    <text x="772" y="447" font-size="15" fill="#52514e">spend only after someone has said “marvin”</text>
+
+    <text x="165" y="548" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">What it hears</text>
+    <text x="560" y="548" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Smart speaker, doorbell, hearing aid…</text>
+  </g>
+</svg>

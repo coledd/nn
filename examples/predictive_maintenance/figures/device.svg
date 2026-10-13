@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1520 600" width="1520" height="600">
+  <title>Vibration sensor node on a motor and gearbox, reporting faults over a wireless link</title>
+  <defs>
+    <linearGradient id="motor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7a8796"/>
+      <stop offset="0.45" stop-color="#5a6675"/>
+      <stop offset="1" stop-color="#3e4855"/>
+    </linearGradient>
+    <linearGradient id="gearbox" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8d8a84"/>
+      <stop offset="1" stop-color="#5f5d58"/>
+    </linearGradient>
+    <linearGradient id="shaft" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d6d4cd"/>
+      <stop offset="0.5" stop-color="#f1f0ec"/>
+      <stop offset="1" stop-color="#a9a7a0"/>
+    </linearGradient>
+    <linearGradient id="node" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3987e5"/>
+      <stop offset="1" stop-color="#1c5cab"/>
+    </linearGradient>
+  </defs>
+  <rect width="1520" height="600" fill="#fcfcfb"/>
+
+  <!-- Base plate and floor -->
+  <rect x="60" y="400" width="840" height="26" rx="4" fill="#9e9b94"/>
+  <rect x="40" y="426" width="880" height="10" rx="3" fill="#c3c2b7"/>
+
+  <!-- Motor: feet, body with cooling fins, fan cover, terminal box -->
+  <rect x="120" y="372" width="60" height="30" rx="3" fill="#4a5461"/>
+  <rect x="330" y="372" width="60" height="30" rx="3" fill="#4a5461"/>
+  <rect x="80" y="216" width="56" height="164" rx="16" fill="#4a5461"/>
+  <rect x="120" y="200" width="300" height="196" rx="22" fill="url(#motor)"/>
+  <g stroke="#3e4855" stroke-width="3" opacity="0.6">
+    <path d="M 150 210 L 150 386 M 180 206 L 180 390 M 210 204 L 210 392 M 240 204 L 240 392 M 270 204 L 270 392 M 300 204 L 300 392 M 330 206 L 330 390 M 360 208 L 360 388 M 390 212 L 390 384"/>
+  </g>
+  <rect x="210" y="168" width="96" height="40" rx="5" fill="#5a6675" stroke="#3e4855" stroke-width="2"/>
+  <!-- Drive-end bearing housing -->
+  <rect x="412" y="232" width="34" height="132" rx="8" fill="#4a5461"/>
+
+  <!-- Shaft and coupling -->
+  <rect x="446" y="285" width="64" height="26" rx="4" fill="url(#shaft)"/>
+  <rect x="506" y="266" width="54" height="64" rx="8" fill="#e2e0d9" stroke="#8b8983" stroke-width="2"/>
+  <path d="M 533 266 L 533 330" stroke="#8b8983" stroke-width="2"/>
+  <rect x="556" y="285" width="44" height="26" rx="4" fill="url(#shaft)"/>
+
+  <!-- Gearbox -->
+  <rect x="600" y="228" width="210" height="172" rx="14" fill="url(#gearbox)"/>
+  <rect x="618" y="246" width="174" height="12" rx="4" fill="#a4a19a"/>
+  <circle cx="650" cy="318" r="22" fill="#77746e" stroke="#4f4d49" stroke-width="2"/>
+  <circle cx="752" cy="340" r="34" fill="#77746e" stroke="#4f4d49" stroke-width="2"/>
+  <rect x="810" y="320" width="70" height="26" rx="4" fill="url(#shaft)"/>
+
+  <!-- Sensor node, stud-mounted on the drive-end bearing housing -->
+  <rect x="404" y="150" width="58" height="82" rx="8" fill="url(#node)"/>
+  <rect x="414" y="164" width="38" height="24" rx="3" fill="#cde2fb"/>
+  <rect x="425" y="232" width="16" height="10" fill="#7f7d78"/>
+  <!-- radio waves -->
+  <g fill="none" stroke="#2a78d6" stroke-width="2.5" stroke-linecap="round">
+    <path d="M 478 150 C 490 138 490 122 478 110"/>
+    <path d="M 492 162 C 512 140 512 112 492 92"/>
+    <path d="M 506 174 C 534 142 534 104 506 74"/>
+  </g>
+
+  <!-- Wireless link to the gateway -->
+  <path d="M 540 100 C 760 40 1000 60 1150 150" fill="none" stroke="#9ec5f4" stroke-width="2" stroke-dasharray="6 6"/>
+
+  <!-- Gateway / maintenance system -->
+  <rect x="1130" y="150" width="300" height="196" rx="14" fill="#ffffff" stroke="#c3c2b7" stroke-width="2"/>
+  <rect x="1130" y="150" width="300" height="38" rx="14" fill="#f0efec"/>
+  <rect x="1130" y="174" width="300" height="14" fill="#f0efec"/>
+  <g font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">
+    <text x="1150" y="175" font-size="14" font-weight="600" fill="#52514e">Plant maintenance system</text>
+    <text x="1150" y="220" font-size="13" fill="#898781">Monitored machine: motor + gearbox</text>
+    <rect x="1150" y="234" width="12" height="12" rx="6" fill="#d03b3b"/>
+    <text x="1170" y="245" font-size="15" font-weight="600" fill="#0b0b0b">BEARING_INNER</text>
+    <text x="1170" y="266" font-size="13" fill="#52514e">confidence 100% · 3 snapshots in a row</text>
+    <text x="1150" y="300" font-size="13" fill="#898781">ISO 10816 velocity 0.50 mm/s — zone A</text>
+    <text x="1150" y="322" font-size="13" fill="#898781">a few bytes per report</text>
+  </g>
+
+  <!-- Callouts -->
+  <g font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">
+    <path d="M 433 150 L 433 110 L 360 110 L 360 70" stroke="#898781" stroke-width="1" fill="none"/>
+    <circle cx="433" cy="150" r="3" fill="#898781"/>
+    <text x="360" y="40" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Sensor node</text>
+    <text x="360" y="61" font-size="15" fill="#52514e" text-anchor="middle">STWIN.box: IIS3DWB + STM32U585</text>
+
+    <path d="M 230 396 L 230 480" stroke="#898781" stroke-width="1"/>
+    <text x="230" y="504" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Induction motor</text>
+    <text x="230" y="525" font-size="15" fill="#52514e" text-anchor="middle">4-pole, ~1,460 rpm</text>
+
+    <path d="M 429 364 L 429 480" stroke="#898781" stroke-width="1" fill="none"/>
+    <text x="429" y="504" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">6206 bearings</text>
+    <text x="429" y="525" font-size="15" fill="#52514e" text-anchor="middle">drive end, under the node</text>
+
+    <path d="M 533 330 L 533 460 L 620 460 L 620 480" stroke="#898781" stroke-width="1" fill="none"/>
+    <text x="620" y="504" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Coupling</text>
+    <text x="620" y="525" font-size="15" fill="#52514e" text-anchor="middle">flexes if misaligned</text>
+
+    <path d="M 760 400 L 760 460 L 810 460 L 810 480" stroke="#898781" stroke-width="1" fill="none"/>
+    <text x="810" y="504" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Gearbox</text>
+    <text x="810" y="525" font-size="15" fill="#52514e" text-anchor="middle">23-tooth pinion</text>
+
+    <text x="1280" y="380" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Gateway</text>
+    <text x="1280" y="401" font-size="15" fill="#52514e" text-anchor="middle">receives a diagnosis, not raw data</text>
+    <text x="840" y="64" font-size="15" fill="#52514e" text-anchor="middle">wireless, low bandwidth</text>
+  </g>
+</svg>

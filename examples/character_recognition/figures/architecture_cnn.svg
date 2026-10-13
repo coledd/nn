@@ -1,13 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2360 300" width="2360" height="300">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 72 2360 228" width="2360" height="228">
   <title>Character Recognition — CNN (train_cnn.c)</title>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#374151"/>
     </marker>
   </defs>
-  <rect x="0" y="0" width="2360" height="300" fill="#ffffff"/>
-  <text x="1180.0" y="38" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#111827">Character Recognition — CNN (train_cnn.c)</text>
-  <text x="1180.0" y="60" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13.5" fill="#6b7280">examples/character_recognition/train_cnn.c</text>
+  <rect x="0" y="0" width="2360" height="300" fill="#fcfcfb"/>
   <rect x="40" y="140" width="150" height="100" rx="12" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
   <text x="115.0" y="184.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Input</text>
   <text x="115.0" y="206.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">28×28×1</text>

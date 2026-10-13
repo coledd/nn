@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 400" width="1600" height="400">
+  <title>Image Classification</title>
+  <rect width="1600" height="400" fill="#fcfcfb"/>
+  <rect x="0" y="0" width="1600" height="8" fill="#2a78d6"/>
+  <text x="72" y="84" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#2a78d6" text-anchor="start" letter-spacing="2.2">EXAMPLE 05  ·  COMPUTER VISION · REAL DATA</text>
+  <text x="72" y="152" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="58" font-weight="700" fill="#0b0b0b" text-anchor="start" letter-spacing="-0.5">Image Classification</text>
+  <text x="72" y="206" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="24" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">Telling a cat from a dog in an ordinary photo, on</text>
+  <text x="72" y="240" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="24" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">the microcontroller in a camera-equipped pet door.</text>
+  <rect x="1010" y="112" width="168" height="3" fill="#2a78d6"/>
+  <text x="1010" y="176" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="44" font-weight="650" fill="#0b0b0b" text-anchor="start" letter-spacing="-0.5">86%</text>
+  <text x="1010" y="208" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">accuracy, balanced</text>
+  <text x="1010" y="230" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">Kaggle test set</text>
+  <rect x="1206" y="112" width="168" height="3" fill="#2a78d6"/>
+  <text x="1206" y="176" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="44" font-weight="650" fill="#0b0b0b" text-anchor="start" letter-spacing="-0.5">36 KB</text>
+  <text x="1206" y="208" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">int8 model</text>
+  <text x="1206" y="230" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">in flash</text>
+  <rect x="1402" y="112" width="168" height="3" fill="#2a78d6"/>
+  <text x="1402" y="176" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="44" font-weight="650" fill="#0b0b0b" text-anchor="start" letter-spacing="-0.5">25K</text>
+  <text x="1402" y="208" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">parameters,</text>
+  <text x="1402" y="230" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">4-stage CNN</text>
+  <rect x="72" y="320" width="1456" height="1" fill="#e1e0d9"/>
+  <text x="72" y="358" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="500" fill="#898781" text-anchor="start" letter-spacing="0.3">Kaggle Cats and Dogs + Oxford-IIIT Pet   ·   ~23,300 training photos   ·   48×48 RGB input   ·   Global average pooling</text>
+</svg>

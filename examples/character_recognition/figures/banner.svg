@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 400" width="1600" height="400">
+  <title>Character Recognition</title>
+  <rect width="1600" height="400" fill="#fcfcfb"/>
+  <rect x="0" y="0" width="1600" height="8" fill="#2a78d6"/>
+  <text x="72" y="84" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#2a78d6" text-anchor="start" letter-spacing="2.2">EXAMPLE 01  ·  COMPUTER VISION · REAL DATA</text>
+  <text x="72" y="152" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="58" font-weight="700" fill="#0b0b0b" text-anchor="start" letter-spacing="-0.5">Character Recognition</text>
+  <text x="72" y="206" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="24" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">Reading handwritten digits on a microcontroller,</text>
+  <text x="72" y="240" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="24" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">and measuring what convolution buys over a plain network.</text>
+  <rect x="1010" y="112" width="168" height="3" fill="#2a78d6"/>
+  <text x="1010" y="176" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="44" font-weight="650" fill="#0b0b0b" text-anchor="start" letter-spacing="-0.5">98.2%</text>
+  <text x="1010" y="208" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">test accuracy,</text>
+  <text x="1010" y="230" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">CNN</text>
+  <rect x="1206" y="112" width="168" height="3" fill="#2a78d6"/>
+  <text x="1206" y="176" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="44" font-weight="650" fill="#0b0b0b" text-anchor="start" letter-spacing="-0.5">97.3%</text>
+  <text x="1206" y="208" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">test accuracy,</text>
+  <text x="1206" y="230" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">fully connected</text>
+  <rect x="1402" y="112" width="168" height="3" fill="#2a78d6"/>
+  <text x="1402" y="176" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="44" font-weight="650" fill="#0b0b0b" text-anchor="start" letter-spacing="-0.5">100K</text>
+  <text x="1402" y="208" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">parameters,</text>
+  <text x="1402" y="230" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">CNN</text>
+  <rect x="72" y="320" width="1456" height="1" fill="#e1e0d9"/>
+  <text x="72" y="358" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="500" fill="#898781" text-anchor="start" letter-spacing="0.3">MNIST, 70,000 digits   ·   28 × 28 pixels   ·   CNN vs. FC   ·   STM32H7   ·   Same data, same test</text>
+</svg>

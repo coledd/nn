@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 400" width="1600" height="400">
+  <title>Object Detection</title>
+  <rect width="1600" height="400" fill="#fcfcfb"/>
+  <rect x="0" y="0" width="1600" height="8" fill="#2a78d6"/>
+  <text x="72" y="84" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#2a78d6" text-anchor="start" letter-spacing="2.2">EXAMPLE 06  ·  MEDICAL IMAGING · REAL DATA</text>
+  <text x="72" y="152" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="58" font-weight="700" fill="#0b0b0b" text-anchor="start" letter-spacing="-0.5">Object Detection</text>
+  <text x="72" y="206" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="24" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">Finding and counting red cells, white cells and</text>
+  <text x="72" y="240" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="24" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">platelets in a microscope photo of a blood smear.</text>
+  <rect x="1010" y="112" width="168" height="3" fill="#2a78d6"/>
+  <text x="1010" y="176" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="44" font-weight="650" fill="#0b0b0b" text-anchor="start" letter-spacing="-0.5">97%</text>
+  <text x="1010" y="208" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">white-cell F1,</text>
+  <text x="1010" y="230" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">every one found</text>
+  <rect x="1206" y="112" width="168" height="3" fill="#2a78d6"/>
+  <text x="1206" y="176" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="44" font-weight="650" fill="#0b0b0b" text-anchor="start" letter-spacing="-0.5">77%</text>
+  <text x="1206" y="208" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">red-cell F1,</text>
+  <text x="1206" y="230" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">count unbiased</text>
+  <rect x="1402" y="112" width="168" height="3" fill="#2a78d6"/>
+  <text x="1402" y="176" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="44" font-weight="650" fill="#0b0b0b" text-anchor="start" letter-spacing="-0.5">23 KB</text>
+  <text x="1402" y="208" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">int8 model</text>
+  <text x="1402" y="230" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16.5" font-weight="400" fill="#52514e" text-anchor="start" letter-spacing="0">in flash</text>
+  <rect x="72" y="320" width="1456" height="1" fill="#e1e0d9"/>
+  <text x="72" y="358" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="500" fill="#898781" text-anchor="start" letter-spacing="0.3">BCCD dataset   ·   364 labeled photos   ·   Fully convolutional   ·   Center heatmaps   ·   15.8K parameters</text>
+</svg>

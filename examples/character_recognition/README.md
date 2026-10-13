@@ -1,159 +1,223 @@
-# Character Recognition
+<p align="center">
+  <img src="figures/banner.svg" alt="Character Recognition: reading handwritten digits on a microcontroller, and measuring what convolution buys over a plain network." width="100%">
+</p>
 
-Trains a network to recognize handwritten digits (MNIST) -- two architectures on the same data, so you can see what the convolutional layers actually buy you.
+> **Abstract.** Turning a small handwritten image into a digit is the "hello world" of embedded vision, and the same model shape reads handwritten amounts, form fields and dials on devices with no network connection. This example trains two networks on the same 70,000 MNIST digits — a convolutional network (CNN) and a plain fully-connected one — and evaluates both with the same test program, so what the convolution layers buy is measured rather than assumed. On 7,000 held-out digits the CNN scores 98.24% and the fully-connected network 97.26%, with about the same number of parameters (100K and 109K) but eight times the arithmetic per digit for the CNN. The library behind it has run this task live on an STM32H7 microcontroller.
 
-## In an embedded system
+| | |
+|---|---|
+| **Task** | 10-way classification of a 28 × 28 handwritten digit |
+| **Data** | MNIST: 70,000 digits, binarized; 80 / 10 / 10% train / validation / test split |
+| **Model** | CNN: 2 × (5 × 5 conv + 2 × 2 max pool) → FC 120 → FC 20 → softmax 10 (100,254 parameters). Baseline: FC 128 → FC 64 → softmax 10 (109,386) |
+| **Hardware** | STM32H7 microcontroller (the library's own demonstration) |
+| **Result** | Test accuracy 98.24% (CNN) vs. 97.26% (fully connected) |
 
-Handwritten-digit recognition is the "hello world" of embedded computer vision, but it's not just a toy: the same shape of model is what runs behind a smart pen digitizing handwritten forms, a point-of-sale device reading a handwritten amount, a meter reader OCR-ing a dial, or a postal sorter reading a ZIP code -- anywhere a small, fixed-size image needs to become a class label on-device, without round-tripping to a server. This `nn` library's own hardware demo (see the top-level README) is exactly this: a handwritten-character recognizer running live on an STM32H7 microcontroller.
+## 1. The problem
 
-This example trains two different architectures on the identical data, so the tradeoff a real embedded project faces -- accuracy vs. compute/memory budget vs. how much of that budget the *shape* of the network costs you, not just its raw size -- is something you can actually see numbers for, rather than take on faith.
+Handwritten-digit recognition is the "hello world" of embedded computer vision, but it's not just a toy: the same shape of model runs behind a smart pen digitizing handwritten forms, a point-of-sale device reading a handwritten amount, a meter reader recognizing a dial, or a postal sorter reading a ZIP code — anywhere a small, fixed-size image has to become a class label on the device, without a round trip to a server.
 
-## Model architecture
+The question this example answers with numbers is the one every such project faces: what does the *shape* of a network cost and buy, beyond its raw size? A convolutional network shares a small set of weights across the whole image and keeps its spatial structure; a fully-connected one gives every pixel its own weight to every unit. Both are trained here on identical data and scored by the identical `test` program.
 
-### `train_cnn.c` -- convolution + pooling ahead of the fully-connected layers
+## 2. The device
 
-![CNN architecture: Input 28x28x1, 5x5 conv x8 same padding to 28x28x8, 2x2 max pool to 14x14x8, a second 5x5 conv x16 same padding to 14x14x16, a second 2x2 max pool to 7x7x16, flatten into a 120-unit GELU FC layer, 30% dropout, a 20-unit GELU FC layer, then a 10-way softmax output](architecture_cnn.svg)
+<p align="center">
+  <img src="figures/device.svg" alt="A handwriting pad with a stylus and a handwritten 8; the image is scaled and thresholded to a 28 by 28 one-bit grid and passed to an STM32H7 microcontroller running the 100K-parameter CNN, which outputs the digit 8 with its confidence." width="900">
+</p>
+<p align="center"><sub><b>Figure 1.</b> A representative device: the handwritten input is scaled to the 28 × 28, one-bit-per-pixel form MNIST digits come in, and the microcontroller classifies it. The digit shown is <code>predict.c</code>'s built-in sample. Schematic, not to scale.</sub></p>
+
+The library has powered exactly this application — a handwritten character recognizer running live on an STM32H7 microcontroller [3]. The CNN's 100,254 weights are 392 KB as 32-bit floats; the STM32H743, for example, has 2 MB of flash and 1 MB of RAM. [Section 6](#6-running-on-the-device) covers fitting and running the model.
+
+## 3. The data
+
+MNIST [1, 2] is 70,000 grayscale digits, 28 × 28 pixels, written by about 500 people and size-normalized and centered in the frame. The Makefile downloads the four original files, and `prepare_data` converts them into `samples.csv`: each pixel becomes 1 if its gray level is 128 or more and 0 otherwise, followed by a one-hot label. `split.py` then shuffles all 70,000 into train (80%), validation (10%) and test (10%) sets.
+
+<p align="center">
+  <img src="figures/mnist_samples.png" alt="A grid of real MNIST test digits, fourteen of each digit from 0 to 9, shown binarized in black on white; handwriting styles vary widely, for example open and closed 4s and slanted 1s." width="640">
+</p>
+<p align="center"><sub><b>Figure 2.</b> Real MNIST digits as the networks see them: fourteen of each class, binarized at a gray level of 128 exactly as <code>prepare_data</code> does.</sub></p>
+
+## 4. Method
+
+### 4.1 `train_cnn.c`: convolution and pooling ahead of the fully-connected layers
+
+<p align="center">
+  <img src="figures/architecture_cnn.svg" alt="CNN architecture: input 28 by 28 by 1; 5 by 5 convolution with 8 filters and same padding to 28 by 28 by 8; 2 by 2 max pool to 14 by 14 by 8; 5 by 5 convolution with 16 filters to 14 by 14 by 16; 2 by 2 max pool to 7 by 7 by 16; flatten into a 120-unit GELU layer; 30% dropout; a 20-unit GELU layer; 10-way softmax output." width="100%">
+</p>
+<p align="center"><sub><b>Figure 3.</b> The CNN. Two convolution and pooling stages turn the 28 × 28 image into 7 × 7 × 16 feature maps before the fully-connected layers.</sub></p>
 
 | Layer | Type | Output shape | Notes |
 |---|---|---|---|
-| 0 | Input | 28×28×1 | one channel, raw pixel intensities |
-| 1 | CNN | 28×28×8 | 5×5 kernel, 8 filters, stride 1, "same" padding (keeps the full 28×28 instead of shrinking to 24×24, so digit strokes near the border still get seen by every kernel position) |
-| 2 | Pool | 14×14×8 | 2×2 max pool, stride 2 |
-| 3 | CNN | 14×14×16 | 5×5 kernel, 16 filters, stride 1, "same" padding -- a second round of feature extraction (edges-of-edges, not just edges) over the first stage's pooled output |
-| 4 | Pool | 7×7×16 | 2×2 max pool, stride 2 |
+| 0 | Input | 28 × 28 × 1 | one channel, one bit per pixel |
+| 1 | CNN | 28 × 28 × 8 | 5 × 5 kernel, 8 filters, stride 1, "same" padding, so strokes near the border are seen by every kernel position |
+| 2 | Pool | 14 × 14 × 8 | 2 × 2 max pool, stride 2 |
+| 3 | CNN | 14 × 14 × 16 | 5 × 5 kernel, 16 filters, "same" padding — features of features: strokes, then shapes |
+| 4 | Pool | 7 × 7 × 16 | 2 × 2 max pool, stride 2 |
 | 5 | FC | 120 | GELU |
 | 6 | Dropout | 120 | 30%, training only |
 | 7 | FC | 20 | GELU |
 | 8 | Output | 10 | Softmax (cross-entropy loss) |
 
-~100K trainable parameters -- roughly half of a single-conv-stage version of this same network (~191K), despite adding a whole extra layer. Both convolutions together still contribute almost none of that (208 + 3,216 = 3,424 weights): the first FC layer is still what dominates the parameter count, but a *second* conv+pool stage shrinks what reaches it (7×7×16 = 784, flattened) instead of a single, wider stage growing it -- widening the first stage to 16 filters instead (an alternative that was measured, not just assumed inferior) still leaves a single 14×14×8→flatten, doubling the FC layer's input to 3,136 and its weight count right along with it, for a smaller accuracy gain than adding this second stage does. See [How they compare](#how-they-compare) below for the measured numbers behind that claim.
+100,254 trainable parameters. The two convolutions contribute only 3,424 of them (208 + 3,216); the first fully-connected layer, reading the 784 flattened values the second pooling stage leaves, holds 94,200. The convolutions are where the arithmetic goes instead: about 880,000 multiply-accumulates per digit, against about 109,000 for the fully-connected network.
 
-### `train_fc.c` -- plain fully-connected network, no convolution
+### 4.2 `train_fc.c`: a plain fully-connected network
 
-![FC architecture: Input 784, dense all-to-all into a 128-unit GELU FC layer, then a 64-unit GELU FC layer, then a 10-way softmax output](architecture_fc.svg)
+<p align="center">
+  <img src="figures/architecture_fc.svg" alt="Fully-connected architecture: 784 flattened input pixels, dense all-to-all into a 128-unit GELU layer, then a 64-unit GELU layer, then a 10-way softmax output." width="820">
+</p>
+<p align="center"><sub><b>Figure 4.</b> The fully-connected baseline: every pixel connects to every unit of the first layer.</sub></p>
 
 | Layer | Type | Output shape | Notes |
 |---|---|---|---|
-| 0 | Input | 784 | flattened 28×28 pixels, no spatial structure |
+| 0 | Input | 784 | flattened 28 × 28 pixels, no spatial structure |
 | 1 | FC | 128 | GELU |
 | 2 | FC | 64 | GELU |
 | 3 | Output | 10 | Softmax (cross-entropy loss) |
 
-~109K trainable parameters -- fewer than the CNN, despite having no convolution/pooling at all, since every one of its FC layers is smaller. Every input pixel connects directly to every unit in the first FC layer: no shared weights, no spatial locality, no translation invariance. This is the baseline a CNN is normally justified against.
+109,386 trainable parameters. Every input pixel connects directly to every unit in the first layer: no shared weights, no spatial locality, no translation invariance. This is the baseline a CNN is normally justified against.
 
-### How they compare
+### 4.3 Training and testing
 
-A real run of each (see [Sample output](#sample-output) below for the full logs):
+Both programs train with a learning rate of 0.005 and stop once validation error hasn't improved for 5 epochs, saving the best model. `test` scores train and test sets the same way for either model: a digit counts as correct only if the right class's softmax output is at least 0.5 and no other class's is — slightly stricter than taking the most probable class.
 
-| | Parameters | Epochs to converge | Test accuracy |
-|---|---|---|---|
-| `train_cnn` | ~100K | 11 | 98.49% |
-| `train_fc` | ~109K | 8 | 96.13% |
+## 5. Results
 
-Your numbers will vary run to run (random weight init, shuffled data), but expect the CNN to consistently edge out the FC network on this task -- the point of having both examples side by side.
+The figures and numbers below come from one run of each program; random initialization and the shuffled split make every run a little different. The CNN led in both pairs of runs measured while writing this example (98.24% vs. 97.26% here; 98.49% vs. 96.13% in an earlier pair).
 
-`train_cnn.c`'s two-conv-stage shape above isn't the only one that was tried -- measured against two alternatives on the same data (two runs each, since a single run isn't enough to separate a real difference from ordinary run-to-run noise):
+<p align="center">
+  <img src="figures/training.svg" alt="Training and validation cross-entropy per epoch. CNN: validation error falls to its best, 0.058, at epoch 6 and training error stays close to it. Fully connected: training error falls to 0.005 while validation error bottoms out at 0.092 at epoch 5 and then rises." width="900">
+</p>
+<p align="center"><sub><b>Figure 5.</b> Training curves. The dot marks the epoch whose model was saved (lowest validation error); training stopped five epochs later.</sub></p>
 
-| | Parameters | Test accuracy (2 runs) | Avg |
-|---|---|---|---|
-| Single stage, 8 filters | ~191K | 97.64%, 97.73% | 97.69% |
-| Single stage, 16 filters | ~379K | 97.77%, 98.31% | 98.04% |
-| **Two stages, 8→16 filters (current)** | **~100K** | **98.44%, 98.49%** | **98.47%** |
+| | Parameters | Multiply-adds per digit | Epochs | Training time | Train accuracy | Test accuracy |
+|---|---|---|---|---|---|---|
+| `train_cnn` | 100,254 | ~880K | 11 | 8 min 25 s | 99.17% | **98.24%** |
+| `train_fc` | 109,386 | ~109K | 10 | 15 s | 99.44% | 97.26% |
 
-Widening the single conv stage to 16 filters does buy back some accuracy over the original 8-filter version, but at roughly double the parameters (since the flattened width feeding the first FC layer doubles right along with it). Adding a second, narrower conv+pool stage instead beat both -- higher accuracy *and* about half the parameters of even the original 8-filter version -- which is why it's what ships here.
+Training times are single-threaded on the desktop used for this document.
 
-## Build and run
+**What convolution buys.** With slightly fewer parameters, the CNN makes about a third fewer mistakes on unseen digits (123 vs. 192 of 7,000 by `test`'s rule). The training curves show why: the fully-connected network fits its training set *better* (99.44%) but generalizes worse — its validation error turns upward after epoch 5 while its training error keeps falling toward zero. The CNN's shared, local filters can't memorize pixel positions the same way, and its training and validation errors stay together.
+
+**What it costs.** The arithmetic: about eight times as many multiply-adds per digit, and a training run about 35 times longer. For a device reading one digit at a time that is still only milliseconds of work (see section 6), but it's the trade the CNN makes: computation for accuracy, at about the same memory.
+
+<p align="center">
+  <img src="figures/confusion.svg" alt="Confusion matrix of the CNN on 7,000 test digits; diagonal counts between 581 and 774; the largest off-diagonal counts are 4 read as 9 (8 times), 8 read as 9 (7), and 2 and 3 read as 7 (6 each)." width="560">
+</p>
+<p align="center"><sub><b>Figure 6.</b> The CNN's test-set confusion matrix by most probable class (6,893 of 7,000 correct, 98.47%). Diagonal: correct; red cells: mistakes, darker for more.</sub></p>
+
+<p align="center">
+  <img src="figures/mistakes.png" alt="Twenty-four misclassified test digits, each labeled with its true and predicted class, for example a 4 read as 9 and a 2 read as 4; many are ambiguous or unusually written." width="760">
+</p>
+<p align="center"><sub><b>Figure 7.</b> The first 24 test digits the CNN gets wrong, labeled true → predicted. Many are hard for a person too.</sub></p>
+
+The mistakes are the familiar MNIST ones: 4s that close at the top become 9s, 8s and 9s trade loops, and 2s and 3s with a straight tail become 7s. Digits 4 and 9 have the lowest per-class accuracy (97.8% and 97.7%) and 0 and 1 the highest (99.3% and 99.2%).
+
+<p align="center">
+  <img src="figures/predict.svg" alt="predict.c's built-in 28 by 28 sample, a blocky 8, beside the CNN's softmax output: 0.989 for 8 and under 0.004 for every other digit." width="760">
+</p>
+<p align="center"><sub><b>Figure 8.</b> <code>predict</code> on its built-in sample: the input, and the CNN's probability for each digit.</sub></p>
+
+## 6. Running on the device
+
+`predict.c` is the shape of the application code: load a model, fill a 784-float input buffer with the 28 × 28 image (0 or 1 per pixel, row by row), call `nn_predict()`, and take the most probable class. On the device the image comes from the touch panel or camera instead, scaled and centered the way MNIST digits are and thresholded at the same gray level.
+
+The models' weights are 392 KB (CNN) and 427 KB (fully connected) as 32-bit floats. The repository's general tools shrink them for flash: `../../quantize` converts a model to 8-bit integers, about a quarter of the size, and `../../export ... --inplace` writes the zero-copy format that `nn_load_model_inplace()` runs straight out of flash (see the top-level README). By a multiply-add count, the CNN's ~880,000 per digit come to a few milliseconds on a Cortex-M7 at several hundred megahertz, and the fully-connected network's ~109,000 to well under one — an estimate, not a measurement.
+
+## 7. Limitations
+
+- **MNIST is clean.** Its digits are size-normalized, centered and written on blank paper. Real input needs the same preprocessing — crop to the stroke, scale to 20 × 20 inside the 28 × 28 frame, center — and a model meant for a particular pen, camera or form should be fine-tuned on samples from it.
+- **Binarized input.** The pixels are thresholded at 128, which keeps the input to one bit per pixel but drops the anti-aliasing at stroke edges.
+- **One run each.** The numbers come from a single training run of each network; they shift by a few tenths of a percent from run to run.
+- **Digits only.** Letters, multi-digit strings and rejecting non-digits all need more classes, more data, or a detector in front.
+
+## Appendix A. Build and run
 
 ```
 cd examples/character_recognition
 make
 ```
-This also downloads the original MNIST files (~11MB, into `dataset/`; yann.lecun.com no longer serves them, so they come from Google's byte-identical CVDF mirror), converts them to `samples.csv` with `prepare_data` (all 70,000 digits, each pixel 1 if its gray level is 128 or more and 0 otherwise, plus a one-hot label), and splits that into `train.csv`/`validation.csv`/`test.csv` via `split.py` (see the top-level README for that script's `--train`/`--validation` options).
 
-Train the CNN:
-```
-./train_cnn model_cnn.txt
-```
-Train the plain FC network (use a different `<model-file>` than the CNN's -- a model built by one architecture can't be resumed by the other):
-```
-./train_fc model_fc.txt
-```
-Either can be resumed/fine-tuned by re-running the same command against an existing model file.
+This downloads the original MNIST files (~11 MB, into `dataset/`; yann.lecun.com no longer serves them, so they come from Google's byte-identical CVDF mirror), converts them to `samples.csv` with `prepare_data`, and splits that into `train.csv` / `validation.csv` / `test.csv` with `split.py` (see the top-level README for its `--train` / `--validation` options).
 
-Evaluate either (the same `test.c` works for both, since it just reads whatever the model's input/output widths are):
-```
-./test model_cnn.txt
-./test model_fc.txt
-```
+| Command | What it does |
+|---|---|
+| `./train_cnn model_cnn.txt` | trains the CNN (resumes if the file exists) |
+| `./train_fc model_fc.txt` | trains the fully-connected network; use a different model file than the CNN's |
+| `./test model_cnn.txt` | scores either model on the train and test sets |
+| `./predict model_cnn.txt` | runs either model on `predict.c`'s built-in sample |
 
-Run inference against a trained model:
-```
-./predict model_cnn.txt
-```
+The figures in this document are generated by `tools/docs/character_recognition.py`.
 
-## Sample output
+## Appendix B. Program output
 
 Training log (`train_cnn`):
 ```
 Creating new model.
 train error, validation error, learning rate
-0.22387, 0.08833, 0.00500
-0.10271, 0.08806, 0.00500
-0.08255, 0.05924, 0.00500
-0.07669, 0.05936, 0.00500
-0.06736, 0.05972, 0.00500
-0.06029, 0.05364, 0.00500
-0.06054, 0.05408, 0.00500
-0.05498, 0.06120, 0.00500
-0.05740, 0.06391, 0.00500
-0.05614, 0.05674, 0.00500
-0.05196, 0.06034, 0.00500
-No validation improvement for 5 epochs (best: 0.05364) -- stopping early.
-Final (last epoch) train error: 0.051964, validation error: 0.060338
-Best validation error (the model saved to disk): 0.053642
+0.22502, 0.09638, 0.00500
+0.09891, 0.08375, 0.00500
+0.08472, 0.07486, 0.00500
+0.07124, 0.06229, 0.00500
+0.06613, 0.07641, 0.00500
+0.06180, 0.05759, 0.00500
+0.05565, 0.07670, 0.00500
+0.05654, 0.07180, 0.00500
+0.05377, 0.06515, 0.00500
+0.05713, 0.06905, 0.00500
+0.05127, 0.06704, 0.00500
+No validation improvement for 5 epochs (best: 0.05759) -- stopping early.
+Final (last epoch) train error: 0.051266, validation error: 0.067037
+Best validation error (the model saved to disk): 0.057591
 Training epochs: 11
 ```
 
 `test model_cnn.txt`:
 ```
-Train: 55544/56000 = 99.19%
-Test : 6894/7000 = 98.49%
+Train: 55537/56000 = 99.17%
+Test : 6877/7000 = 98.24%
 ```
 
-`predict model_cnn.txt` (per-class probability for one sample digit):
+`predict model_cnn.txt` (per-class probability for the built-in sample):
 ```
-0: 0.00104
-1: 0.00006
-2: 0.00126
-3: 0.00078
-4: 0.00013
-5: 0.00020
-6: 0.00405
-7: 0.00001
-8: 0.99149
-9: 0.00099
+0: 0.00112
+1: 0.00124
+2: 0.00112
+3: 0.00367
+4: 0.00009
+5: 0.00264
+6: 0.00072
+7: 0.00046
+8: 0.98879
+9: 0.00015
 ```
 
 Training log (`train_fc`):
 ```
 Creating new model.
 train error, validation error, learning rate
-0.26005, 0.15315, 0.00500
-0.10576, 0.12386, 0.00500
-0.07074, 0.11354, 0.00500
-0.04833, 0.11842, 0.00500
-0.03595, 0.12634, 0.00500
-0.02503, 0.11943, 0.00500
-0.01891, 0.11780, 0.00500
-0.01401, 0.11388, 0.00500
-No validation improvement for 5 epochs (best: 0.11354) -- stopping early.
-Final (last epoch) train error: 0.014007, validation error: 0.113876
-Best validation error (the model saved to disk): 0.113543
-Training epochs: 8
+0.26216, 0.14512, 0.00500
+0.10713, 0.12518, 0.00500
+0.07035, 0.10774, 0.00500
+0.04911, 0.10364, 0.00500
+0.03547, 0.09226, 0.00500
+0.02390, 0.09820, 0.00500
+0.01793, 0.09486, 0.00500
+0.01047, 0.10639, 0.00500
+0.00784, 0.10681, 0.00500
+0.00491, 0.10380, 0.00500
+No validation improvement for 5 epochs (best: 0.09226) -- stopping early.
+Final (last epoch) train error: 0.004911, validation error: 0.103801
+Best validation error (the model saved to disk): 0.092258
+Training epochs: 10
 ```
 
 `test model_fc.txt`:
 ```
-Train: 54932/56000 = 98.09%
-Test : 6729/7000 = 96.13%
+Train: 55688/56000 = 99.44%
+Test : 6808/7000 = 97.26%
 ```
+
+## References
+
+1. Y. LeCun, L. Bottou, Y. Bengio and P. Haffner, "Gradient-based learning applied to document recognition," *Proceedings of the IEEE*, 1998.
+2. Y. LeCun, C. Cortes and C. J. C. Burges, "The MNIST database of handwritten digits."
+3. Handwritten character recognition on an STM32H7 with this library, [video demonstration](https://www.youtube.com/watch?v=cqjwSkrGtww).

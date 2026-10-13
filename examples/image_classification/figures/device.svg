@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1520 600" width="1520" height="600">
+  <title>Camera-equipped pet door: where the camera, controller and latch sit</title>
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e7e4dc"/>
+      <stop offset="1" stop-color="#d6d2c8"/>
+    </linearGradient>
+    <linearGradient id="flap" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#cfe0f2" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#b3cbe6" stop-opacity="0.9"/>
+    </linearGradient>
+    <linearGradient id="fur" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8e8a82"/>
+      <stop offset="1" stop-color="#6b6862"/>
+    </linearGradient>
+    <linearGradient id="cone" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0" stop-color="#2a78d6" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#2a78d6" stop-opacity="0.02"/>
+    </linearGradient>
+  </defs>
+  <rect width="1520" height="600" fill="#fcfcfb"/>
+
+  <!-- Floor -->
+  <rect x="40" y="478" width="1000" height="3" fill="#c3c2b7"/>
+
+  <!-- Door (side view: the door is the vertical slab; the pet door is cut into it) -->
+  <rect x="640" y="140" width="44" height="338" fill="url(#wall)" stroke="#b9b5aa" stroke-width="2"/>
+  <!-- Pet door frame and flap -->
+  <rect x="628" y="312" width="68" height="166" rx="8" fill="#5b5a57"/>
+  <rect x="644" y="324" width="36" height="142" rx="4" fill="url(#flap)" stroke="#8aa9cf" stroke-width="1.5"/>
+  <!-- Latch -->
+  <rect x="652" y="458" width="22" height="12" rx="3" fill="#eb6834"/>
+  <!-- Camera + controller housing on top of the frame -->
+  <rect x="614" y="250" width="96" height="58" rx="10" fill="#3d3c3a"/>
+  <circle cx="626" cy="279" r="13" fill="#1a1a19" stroke="#6f6d68" stroke-width="2"/>
+  <circle cx="626" cy="279" r="5" fill="#2a78d6"/>
+  <rect x="646" y="266" width="50" height="26" rx="4" fill="#2a78d6"/>
+  <!-- Motion sensor dome -->
+  <path d="M 676 250 a 12 12 0 0 1 24 0 Z" fill="#e9e8e4" stroke="#8b8983" stroke-width="1.5"/>
+  <!-- Field of view toward the approaching animal -->
+  <path d="M 614 279 L 150 170 L 150 478 L 614 290 Z" fill="url(#cone)"/>
+
+  <!-- Cat approaching -->
+  <g fill="url(#fur)">
+    <ellipse cx="330" cy="400" rx="118" ry="50"/>
+    <rect x="232" y="420" width="24" height="58" rx="10"/>
+    <rect x="270" y="426" width="24" height="52" rx="10"/>
+    <rect x="370" y="426" width="24" height="52" rx="10"/>
+    <rect x="404" y="420" width="24" height="58" rx="10"/>
+    <circle cx="460" cy="350" r="44"/>
+    <path d="M 432 318 L 438 282 L 460 310 Z"/>
+    <path d="M 470 308 L 494 284 L 494 322 Z"/>
+    <path d="M 216 392 C 160 380 150 320 186 288" fill="none" stroke="#7a766f" stroke-width="18" stroke-linecap="round"/>
+  </g>
+  <circle cx="478" cy="346" r="5" fill="#fcfcfb"/>
+  <circle cx="479" cy="346" r="2.5" fill="#1a1a19"/>
+  <path d="M 500 362 L 530 356 M 500 368 L 530 370" stroke="#c3c2b7" stroke-width="1.5"/>
+
+  <!-- Callouts -->
+  <g font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">
+    <path d="M 640 262 L 560 160" stroke="#898781" stroke-width="1"/>
+    <circle cx="640" cy="262" r="3" fill="#898781"/>
+    <text x="560" y="128" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Camera + controller</text>
+    <text x="560" y="149" font-size="15" fill="#52514e" text-anchor="middle">CNN on a microcontroller, ≥512 KiB RAM</text>
+
+    <path d="M 688 248 L 800 190" stroke="#898781" stroke-width="1"/>
+    <text x="808" y="182" font-size="17" font-weight="600" fill="#0b0b0b">Motion trigger</text>
+    <text x="808" y="203" font-size="15" fill="#52514e">wakes the camera, frames the animal</text>
+
+    <path d="M 674 464 L 800 520" stroke="#898781" stroke-width="1"/>
+    <text x="808" y="518" font-size="17" font-weight="600" fill="#0b0b0b">Latch</text>
+    <text x="808" y="539" font-size="15" fill="#52514e">opens for the cat, stays locked for the dog</text>
+
+    <path d="M 696 395 L 800 395" stroke="#898781" stroke-width="1"/>
+    <text x="808" y="391" font-size="17" font-weight="600" fill="#0b0b0b">Flap</text>
+    <text x="808" y="412" font-size="15" fill="#52514e">in the door</text>
+  </g>
+
+  <!-- Inset: what the network sees -->
+  <g transform="translate(1180 170)">
+    <rect x="-8" y="-8" width="208" height="208" rx="6" fill="#ffffff" stroke="#e1e0d9" stroke-width="2"/>
+    <image x="0" y="0" width="192" height="192" image-rendering="pixelated" style="image-rendering: pixelated" xlink:href="data:image/png;base64,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"/>
+    <g font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" text-anchor="middle">
+      <text x="96" y="-46" font-size="17" font-weight="600" fill="#0b0b0b">What the network sees</text>
+      <text x="96" y="-25" font-size="15" fill="#52514e">48×48 RGB, area-averaged</text>
+      <text x="96" y="236" font-size="15" fill="#52514e">a real input from the test set</text>
+    </g>
+  </g>
+</svg>

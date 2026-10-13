@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1520 600" width="1520" height="600">
+  <title>Handheld blood analyzer: where the slide, optics, camera and controller sit</title>
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f2f1ed"/>
+      <stop offset="1" stop-color="#d9d7cf"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f2a37"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="smear" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e6b7b2" stop-opacity="0.15"/>
+      <stop offset="0.5" stop-color="#d98f8a" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#e6b7b2" stop-opacity="0.15"/>
+    </linearGradient>
+  </defs>
+  <rect width="1520" height="600" fill="#fcfcfb"/>
+
+  <!-- Device body (cut away at the left to show the optical path) -->
+  <rect x="260" y="150" width="620" height="300" rx="34" fill="url(#body)" stroke="#a9a69d" stroke-width="2"/>
+  <rect x="290" y="178" width="250" height="244" rx="14" fill="#ecebe6" stroke="#c3c2b7" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <!-- Light source -->
+  <rect x="380" y="380" width="70" height="22" rx="6" fill="#eda100"/>
+  <path d="M 395 380 L 405 336 M 415 380 L 415 336 M 435 380 L 425 336" stroke="#eda100" stroke-width="2" stroke-opacity="0.7"/>
+  <!-- Slide with smear -->
+  <rect x="300" y="318" width="230" height="14" rx="2" fill="#dbe7f3" stroke="#8aa9cf" stroke-width="1.5"/>
+  <rect x="360" y="316" width="110" height="4" rx="2" fill="url(#smear)"/>
+  <!-- Objective lens and tube -->
+  <rect x="395" y="236" width="40" height="70" rx="6" fill="#5b5a57"/>
+  <rect x="402" y="300" width="26" height="12" rx="3" fill="#3d3c3a"/>
+  <!-- Camera sensor -->
+  <rect x="385" y="206" width="60" height="26" rx="4" fill="#2a78d6"/>
+  <!-- Controller board -->
+  <rect x="560" y="364" width="150" height="40" rx="6" fill="#256abf"/>
+  <rect x="574" y="372" width="34" height="24" rx="3" fill="#cde2fb"/>
+  <rect x="616" y="372" width="34" height="24" rx="3" fill="#cde2fb"/>
+  <path d="M 445 219 C 520 219 520 384 560 384" stroke="#2a78d6" stroke-width="2" fill="none"/>
+  <!-- Screen with the result -->
+  <rect x="580" y="186" width="270" height="160" rx="12" fill="url(#screen)"/>
+  <g font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">
+    <text x="602" y="222" font-size="15" fill="#9ca3af">Cells in view</text>
+    <text x="602" y="260" font-size="22" font-weight="600" fill="#f0efec">RBC</text>
+    <text x="828" y="260" font-size="22" font-weight="600" fill="#f0efec" text-anchor="end">13</text>
+    <text x="602" y="292" font-size="22" font-weight="600" fill="#f0efec">WBC</text>
+    <text x="828" y="292" font-size="22" font-weight="600" fill="#f0efec" text-anchor="end">1</text>
+    <text x="602" y="324" font-size="22" font-weight="600" fill="#f0efec">Platelets</text>
+    <text x="828" y="324" font-size="22" font-weight="600" fill="#f0efec" text-anchor="end">1</text>
+  </g>
+  <!-- Slide slot -->
+  <rect x="250" y="318" width="20" height="14" fill="#a9a69d"/>
+
+  <!-- Callouts -->
+  <g font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">
+    <path d="M 415 206 L 415 110" stroke="#898781" stroke-width="1"/>
+    <circle cx="415" cy="206" r="3" fill="#898781"/>
+    <text x="415" y="80" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Camera</text>
+    <text x="415" y="101" font-size="15" fill="#52514e" text-anchor="middle">640×480 frame of the smear</text>
+
+    <path d="M 300 325 L 150 325" stroke="#898781" stroke-width="1"/>
+    <text x="140" y="321" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="end">Stained smear</text>
+    <text x="140" y="342" font-size="15" fill="#52514e" text-anchor="end">on a glass slide</text>
+
+    <path d="M 415 402 L 415 500" stroke="#898781" stroke-width="1"/>
+    <text x="415" y="524" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Light source + objective</text>
+    <text x="415" y="545" font-size="15" fill="#52514e" text-anchor="middle">transmitted-light microscope</text>
+
+    <path d="M 635 404 L 680 500" stroke="#898781" stroke-width="1"/>
+    <text x="690" y="524" font-size="17" font-weight="600" fill="#0b0b0b">Controller</text>
+    <text x="690" y="545" font-size="15" fill="#52514e">detector + heatmap decoding, ≥512 KiB RAM</text>
+
+    <path d="M 850 230 L 960 190" stroke="#898781" stroke-width="1"/>
+    <text x="970" y="186" font-size="17" font-weight="600" fill="#0b0b0b">Result in seconds</text>
+    <text x="970" y="207" font-size="15" fill="#52514e">no lab, no network; the photo never leaves the device</text>
+  </g>
+
+  <!-- Inset: field of view -->
+  <g transform="translate(1040 300)">
+    <rect x="0" y="0" width="400" height="240" rx="10" fill="#efe9ea" stroke="#e1e0d9" stroke-width="2"/>
+    <g fill="#d99b95" stroke="#c98680" stroke-width="1.5">
+      <circle cx="60" cy="60" r="38"/>
+      <circle cx="140" cy="44" r="36"/>
+      <circle cx="330" cy="58" r="40"/>
+      <circle cx="70" cy="180" r="40"/>
+      <circle cx="160" cy="196" r="36"/>
+      <circle cx="320" cy="180" r="38"/>
+      <circle cx="372" cy="130" r="30"/>
+    </g>
+    <circle cx="240" cy="120" r="66" fill="#d9c8ea" stroke="#b9a3d6" stroke-width="1.5"/>
+    <path d="M 210 100 C 230 80 262 90 258 112 C 280 120 268 150 244 146 C 230 160 200 150 212 128 C 196 118 200 104 210 100 Z" fill="#6250d6" fill-opacity="0.75"/>
+    <circle cx="206" cy="36" r="9" fill="#a88fd0"/>
+    <g fill="none" stroke-width="2.5">
+      <circle cx="60" cy="60" r="4" fill="#2a78d6" stroke="#ffffff"/>
+      <circle cx="140" cy="44" r="4" fill="#2a78d6" stroke="#ffffff"/>
+      <circle cx="330" cy="58" r="4" fill="#2a78d6" stroke="#ffffff"/>
+      <circle cx="70" cy="180" r="4" fill="#2a78d6" stroke="#ffffff"/>
+      <circle cx="160" cy="196" r="4" fill="#2a78d6" stroke="#ffffff"/>
+      <circle cx="320" cy="180" r="4" fill="#2a78d6" stroke="#ffffff"/>
+      <circle cx="372" cy="130" r="4" fill="#2a78d6" stroke="#ffffff"/>
+      <circle cx="240" cy="120" r="5" fill="#eb6834" stroke="#ffffff"/>
+      <circle cx="206" cy="36" r="4" fill="#1baf7a" stroke="#ffffff"/>
+    </g>
+    <g font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" text-anchor="middle">
+      <text x="200" y="-22" font-size="17" font-weight="600" fill="#0b0b0b">One detection per cell center</text>
+      <text x="200" y="268" font-size="15" fill="#52514e">red cells, a white cell and a platelet, counted</text>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1520 600" width="1520" height="600">
+  <title>A wrist-worn device recognizing gestures from its accelerometer</title>
+  <defs>
+    <linearGradient id="skin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#efe6dc"/>
+      <stop offset="1" stop-color="#ddcfc0"/>
+    </linearGradient>
+    <linearGradient id="case" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5b5a57"/>
+      <stop offset="1" stop-color="#2b2a29"/>
+    </linearGradient>
+    <linearGradient id="strap" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a4a48"/>
+      <stop offset="1" stop-color="#323230"/>
+    </linearGradient>
+    <marker id="ax" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+    </marker>
+    <marker id="mv" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1c5cab"/>
+    </marker>
+  </defs>
+  <rect width="1520" height="600" fill="#fcfcfb"/>
+
+  <!-- Forearm and hand -->
+  <path d="M 40 250 C 200 236 360 232 470 236 L 470 372 C 360 378 200 380 40 372 Z" fill="url(#skin)" stroke="#b9ab9b" stroke-width="2"/>
+  <path d="M 470 236 C 520 232 560 226 600 230 C 650 236 690 252 700 280 C 706 300 700 330 680 346 C 650 368 600 374 560 374 L 470 372 Z" fill="url(#skin)" stroke="#b9ab9b" stroke-width="2"/>
+  <g fill="url(#skin)" stroke="#b9ab9b" stroke-width="2">
+    <rect x="684" y="262" width="96" height="24" rx="12"/>
+    <rect x="690" y="290" width="104" height="24" rx="12"/>
+    <rect x="686" y="318" width="96" height="24" rx="12"/>
+    <rect x="672" y="346" width="78" height="22" rx="11"/>
+  </g>
+
+  <!-- Watch: strap and case -->
+  <rect x="356" y="214" width="66" height="180" rx="12" fill="url(#strap)"/>
+  <rect x="326" y="246" width="126" height="116" rx="26" fill="url(#case)"/>
+  <rect x="338" y="258" width="102" height="92" rx="18" fill="#0d366b"/>
+  <text x="389" y="300" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="700" fill="#ffffff" text-anchor="middle">SHAKE</text>
+  <text x="389" y="324" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" fill="#9ec5f4" text-anchor="middle">display on</text>
+
+  <!-- Motion: a quick shake of the wrist -->
+  <path d="M 300 182 C 340 162 440 162 480 182" fill="none" stroke="#1c5cab" stroke-width="2.5" marker-start="url(#mv)" marker-end="url(#mv)"/>
+  <text x="390" y="150" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15" fill="#1c5cab" text-anchor="middle" font-weight="600">shake or tilt</text>
+
+  <!-- Inside the watch: board detail -->
+  <g transform="translate(980 110)">
+    <rect x="0" y="0" width="420" height="300" rx="22" fill="#eef4ec" stroke="#8fb08a" stroke-width="2"/>
+    <rect x="40" y="56" width="132" height="96" rx="8" fill="#2a78d6"/>
+    <rect x="58" y="74" width="96" height="60" rx="4" fill="#cde2fb"/>
+    <rect x="236" y="168" width="96" height="76" rx="8" fill="#3d3c3a"/>
+    <rect x="252" y="184" width="64" height="44" rx="3" fill="#5b5a57"/>
+    <path d="M 172 104 C 210 104 220 206 236 206" fill="none" stroke="#2a78d6" stroke-width="2"/>
+    <circle cx="370" cy="66" r="22" fill="#d9d7d0" stroke="#9a9892" stroke-width="2"/>
+    <!-- accelerometer axes -->
+    <g stroke-width="3" fill="none">
+      <path d="M 284 206 L 384 206" stroke="#2a78d6" marker-end="url(#ax)"/>
+      <path d="M 284 206 L 330 160" stroke="#eb6834" marker-end="url(#ax)"/>
+      <path d="M 284 206 L 284 112" stroke="#1baf7a" marker-end="url(#ax)"/>
+    </g>
+    <g font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15" font-weight="700">
+      <text x="392" y="211" fill="#1c5cab">x</text>
+      <text x="336" y="154" fill="#c94f1f">y</text>
+      <text x="278" y="102" fill="#127a55">z</text>
+    </g>
+  </g>
+  <path d="M 452 340 C 560 470 860 470 980 370" fill="none" stroke="#c3c2b7" stroke-width="1.5" stroke-dasharray="4 5"/>
+
+  <!-- Callouts -->
+  <g font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">
+    <path d="M 389 394 L 389 480" stroke="#898781" stroke-width="1"/>
+    <text x="389" y="504" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Wrist-worn device</text>
+    <text x="389" y="525" font-size="15" fill="#52514e" text-anchor="middle">watch, fitness band or remote</text>
+
+    <path d="M 1086 262 L 1086 470 L 1050 480" stroke="#898781" stroke-width="1" fill="none"/>
+    <text x="1050" y="504" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Microcontroller</text>
+    <text x="1050" y="525" font-size="15" fill="#52514e" text-anchor="middle">runs the 388-parameter RNN</text>
+
+    <path d="M 1264 354 L 1264 470 L 1320 480" stroke="#898781" stroke-width="1" fill="none"/>
+    <text x="1330" y="504" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">3-axis accelerometer</text>
+    <text x="1330" y="525" font-size="15" fill="#52514e" text-anchor="middle">one (x, y, z) sample per timestep</text>
+
+    <text x="1190" y="88" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Inside the device</text>
+  </g>
+</svg>
