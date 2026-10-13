@@ -57,10 +57,10 @@ $(DATASET_DIR)/$(WAKE_WORD): $(DATASET_ARCHIVE)
 	tar -xzf $(DATASET_ARCHIVE) -C $(DATASET_DIR)
 	touch $@
 
-# Unlike examples/character_recognition's samples.csv (a pre-flattened
-# download), flattening this dataset into feature rows is itself the thing
-# this example exists to demonstrate -- see prepare_data.c's top comment --
-# so it runs for real here instead of being fetched pre-built.
+# Unlike examples/character_recognition's samples.csv (MNIST's pixels,
+# flattened and thresholded), flattening this dataset into feature rows is
+# itself the thing this example exists to demonstrate -- see
+# prepare_data.c's top comment.
 samples.csv: prepare_data $(DATASET_DIR)/$(WAKE_WORD)
 	./prepare_data $(DATASET_DIR) $@ $(WAKE_WORD)
 

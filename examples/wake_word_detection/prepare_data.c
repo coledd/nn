@@ -17,8 +17,8 @@
 // through silence/ambient noise, not just other speech).
 //
 // This is the one genuinely new tool in this example. Unlike
-// examples/character_recognition's samples.csv (a pre-flattened MNIST
-// download -- flattening pixels has no bearing on what a deployed target
+// examples/character_recognition's samples.csv (MNIST's pixels, flattened
+// and thresholded -- which has no bearing on what a deployed target
 // does), flattening audio into feature rows via audio_features.[ch] IS
 // exactly what a deployed target's firmware has to do against its own live
 // mic buffer, so that step has to be real, working code here rather than a

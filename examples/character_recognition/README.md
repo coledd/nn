@@ -68,7 +68,7 @@ Widening the single conv stage to 16 filters does buy back some accuracy over th
 cd examples/character_recognition
 make
 ```
-This also downloads the MNIST dataset (`samples.csv`, ~110MB, cached after the first run) and splits it into `train.csv`/`validation.csv`/`test.csv` via `split.py` (see the top-level README for that script's `--train`/`--validation` options).
+This also downloads the original MNIST files (~11MB, into `dataset/`; yann.lecun.com no longer serves them, so they come from Google's byte-identical CVDF mirror), converts them to `samples.csv` with `prepare_data` (all 70,000 digits, each pixel 1 if its gray level is 128 or more and 0 otherwise, plus a one-hot label), and splits that into `train.csv`/`validation.csv`/`test.csv` via `split.py` (see the top-level README for that script's `--train`/`--validation` options).
 
 Train the CNN:
 ```
