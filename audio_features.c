@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "audio_features.h"
+#include "fft.h"
 
 // Local, not M_PI -- <math.h> doesn't portably define it (it's a glibc
 // extension gated on feature-test macros this project doesn't set), and
@@ -111,56 +112,13 @@ void audio_features_free(audio_features_t *af)
   free(af);
 }
 
-// In-place iterative radix-2 Cooley-Tukey FFT (decimation in time),
-// `n` a power of 2 -- audio_features_init() already rejected any
-// frame_len that isn't. Standard bit-reversal permutation followed by
-// log2(n) butterfly stages; no allocation.
-static void fft_inplace(float *real, float *imag, int n)
-{
-  for (int i = 1, j = 0; i < n; i++) {
-    int bit = n >> 1;
-    for (; j & bit; bit >>= 1)
-      j ^= bit;
-    j ^= bit;
-    if (i < j) {
-      float tmp = real[i];
-      real[i] = real[j];
-      real[j] = tmp;
-      tmp = imag[i];
-      imag[i] = imag[j];
-      imag[j] = tmp;
-    }
-  }
-  for (int len = 2; len <= n; len <<= 1) {
-    float ang = -2.0f * PI / (float)len;
-    float wr = cosf(ang), wi = sinf(ang);
-    for (int i = 0; i < n; i += len) {
-      float cur_wr = 1.0f, cur_wi = 0.0f;
-      for (int k = 0; k < len / 2; k++) {
-        int a = i + k, b = i + k + len / 2;
-        float ur = real[a], ui = imag[a];
-        float vr = real[b] * cur_wr - imag[b] * cur_wi;
-        float vi = real[b] * cur_wi + imag[b] * cur_wr;
-        real[a] = ur + vr;
-        imag[a] = ui + vi;
-        real[b] = ur - vr;
-        imag[b] = ui - vi;
-        float next_wr = cur_wr * wr - cur_wi * wi;
-        float next_wi = cur_wr * wi + cur_wi * wr;
-        cur_wr = next_wr;
-        cur_wi = next_wi;
-      }
-    }
-  }
-}
-
 void audio_features_frame(audio_features_t *af, const float *frame, float *out)
 {
   for (int i = 0; i < af->frame_len; i++) {
     af->scratch_real[i] = frame[i] * af->window[i];
     af->scratch_imag[i] = 0.0f;
   }
-  fft_inplace(af->scratch_real, af->scratch_imag, af->frame_len);
+  fft(af->scratch_real, af->scratch_imag, af->frame_len);
   for (int k = 0; k < af->num_fft_bins; k++)
     af->power[k] = af->scratch_real[k] * af->scratch_real[k] + af->scratch_imag[k] * af->scratch_imag[k];
   for (int m = 0; m < af->num_mel_bins; m++) {

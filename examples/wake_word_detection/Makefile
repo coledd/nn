@@ -11,7 +11,7 @@ WAKE_WORD := marvin
 all: train test predict $(CSV_OUTPUTS)
 
 # Recursing into the top-level Makefile (rather than duplicating nn.o's/
-# data_prep.o's/audio_features.o's/wav_reader.o's build rules here) keeps
+# data_prep.o's/audio_features.o's/fft.o's/wav_reader.o's build rules here) keeps
 # each compiled in exactly one place regardless of how many examples/*/
 # directories get built.
 ../../libnn.a:
@@ -22,6 +22,9 @@ all: train test predict $(CSV_OUTPUTS)
 
 ../../audio_features.o:
 	$(MAKE) -C ../.. audio_features.o
+
+../../fft.o:
+	$(MAKE) -C ../.. fft.o
 
 ../../wav_reader.o:
 	$(MAKE) -C ../.. wav_reader.o
@@ -34,13 +37,13 @@ test: test.c ../../data_prep.o ../../libnn.a
 
 # predict.c reads a real WAV file through wav_reader.[ch]/audio_features.[ch]
 # instead of data_prep.[ch]'s CSV rows, so it links those two instead.
-predict: predict.c ../../audio_features.o ../../wav_reader.o ../../libnn.a
-	$(CC) $(CFLAGS) -I../.. predict.c ../../audio_features.o ../../wav_reader.o ../../libnn.a $(LDFLAGS) -o $@
+predict: predict.c ../../audio_features.o ../../fft.o ../../wav_reader.o ../../libnn.a
+	$(CC) $(CFLAGS) -I../.. predict.c ../../audio_features.o ../../fft.o ../../wav_reader.o ../../libnn.a $(LDFLAGS) -o $@
 
 # Same two libraries as predict, for the same reason (real WAV files in,
 # audio_features.[ch] doing the same feature extraction training will see).
-prepare_data: prepare_data.c ../../audio_features.o ../../wav_reader.o ../../libnn.a
-	$(CC) $(CFLAGS) -I../.. prepare_data.c ../../audio_features.o ../../wav_reader.o ../../libnn.a $(LDFLAGS) -o $@
+prepare_data: prepare_data.c ../../audio_features.o ../../fft.o ../../wav_reader.o ../../libnn.a
+	$(CC) $(CFLAGS) -I../.. prepare_data.c ../../audio_features.o ../../fft.o ../../wav_reader.o ../../libnn.a $(LDFLAGS) -o $@
 
 # Downloads and extracts the real Google Speech Commands dataset (CC BY 4.0)
 # -- ~2.4GB, one subdirectory per spoken word plus a "_background_noise_"

@@ -1,8 +1,8 @@
 # Examples
 
-Six self-contained examples of constructing, training, and evaluating a network with this library. Each has its own Makefile (`cd examples/<name> && make`, recursing into the top-level Makefile for the shared library), its own README (embedded-system framing, architecture diagram, build/run instructions, sample output), and generates, synthesizes, or downloads its own training data -- nothing here needs to be built from the repository root.
+Seven self-contained examples of constructing, training, and evaluating a network with this library. Each has its own Makefile (`cd examples/<name> && make`, recursing into the top-level Makefile for the shared library), its own README (embedded-system framing, architecture diagram, build/run instructions, sample output), and generates, synthesizes, or downloads its own training data -- nothing here needs to be built from the repository root.
 
-Read in order, they also tell a story: each example needs a little more memory (or a little more realism) than the last to solve its task, and the layer type -- or, for the last one, the extra feature-extraction stage in front of it -- tracks that escalation directly.
+Read in order, they also tell a story: each example needs a little more memory (or a little more realism) than the last to solve its task, and the layer type -- or, for the last one, the extra feature-extraction stage in front of it -- tracks that escalation directly. The last one, `predictive_maintenance`, turns that around: its network is the simplest in the set, because the work has moved into a signal-processing front end and into what it compares each input against -- the same machine's own past.
 
 | Example | Layer type | Task | Parameters |
 |---|---|---|---|
@@ -12,6 +12,7 @@ Read in order, they also tell a story: each example needs a little more memory (
 | [`wake_word_detection`](wake_word_detection/README.md) | GRU (the winner of a measured RNN *vs.* GRU *vs.* LSTM comparison -- see its README) | Classify a whole (49-frame) real spoken utterance as a wake word or not -- same fixed-window shape as `gesture_recognition`, but on real audio (via a new `audio_features.[ch]` feature-extraction stage) instead of a synthetic sensor stream | ~5,121 |
 | [`image_classification`](image_classification/README.md) | CNN | Classify a pet photo as cat or dog -- same whole-image-at-once shape as `character_recognition`, but on ~23,000 real photos from two public datasets, with accuracy broken down per breed | ~25K |
 | [`object_detection`](object_detection/README.md) | Fully convolutional CNN (1×1 conv heatmap head) | Find and count every red cell, white cell, and platelet in a microscope photo -- the first example with more than one answer per input: what is in the frame, where, and how many | ~16K |
+| [`predictive_maintenance`](predictive_maintenance/README.md) | Plain FC, behind a two-FFT spectral "fingerprint" front end | Tell from a few seconds of vibration whether an industrial machine is healthy or which of seven faults is developing -- months before it fails -- by comparing its frequency fingerprint now with the one it had when installed | 4,792 |
 
 ## [`character_recognition`](character_recognition/README.md)
 
@@ -46,3 +47,9 @@ Tells a cat from a dog in a photo (the Kaggle Cats and Dogs and Oxford-IIIT Pet 
 <img src="object_detection/architecture.svg" alt="Object detection fully convolutional network architecture diagram" width="520"><br>
 
 Finds and counts the red blood cells, white blood cells, and platelets in a microscope photo of a blood smear (the BCCD dataset) -- the job of a handheld blood analyzer that has to produce a count with no lab and no network. Every other example gives one answer per input; this one gives a list of objects, each with a class and a position. It does that without any change to the library: the network ends in a 1×1 convolution instead of a fully-connected output layer, producing one coarse heatmap per class, and a small decoder (`heatmap.[ch]`) turns each heatmap's peaks into detections. Its README measures what made that work (spreading each training target over neighboring cells, without which the rare classes never trained at all) and what didn't (a 4× range in parameter count), and shows how much of its remaining error is the dataset's own missing labels rather than the model.
+
+## [`predictive_maintenance`](predictive_maintenance/README.md)
+
+<img src="predictive_maintenance/architecture.svg" alt="Predictive maintenance architecture diagram" width="620"><br>
+
+Watches an industrial motor and gearbox through an accelerometer and names which of seven failure modes is developing in it -- imbalance, misalignment, looseness, an outer- or inner-race bearing defect, a damaged gear tooth, or lubrication breakdown -- long before it fails, while a traditional overall-vibration alarm still reads normal. Built around an STM32U585 with an IIS3DWB vibration sensor. Each snapshot becomes a 64-band frequency fingerprint (an FFT of the vibration, plus a second FFT of its envelope that brings out the repetition rate of bearing and gear impacts), and the network sees both that fingerprint and how far it has moved from the one the same machine had at commissioning. Training data comes from a physics-based simulator of the seven faults on many slightly different machines. Its README measures what each part is worth: the warning time against an ISO 10816 vibration alarm, and the false alarms and lost warning time without the comparison to the machine's own past.

@@ -42,7 +42,15 @@ data_prep.o: data_prep.c data_prep.h
 # or of `all` (no root tool uses it directly) -- examples/*/Makefile
 # recurses into `$(MAKE) -C ../.. audio_features.o` for whichever example
 # needs it (currently just wake_word_detection).
-audio_features.o: audio_features.c audio_features.h
+audio_features.o: audio_features.c audio_features.h fft.h
+	$(CC) $(CFLAGS) -c $<
+
+# The radix-2 FFT behind both on-device feature extractors (audio_features.o
+# above and examples/predictive_maintenance's vibration_features.o), kept
+# here so neither carries its own copy. Ships into firmware with whichever
+# of them a target uses; not part of libnn.a or `all`, same reasoning as
+# audio_features.o -- examples recurse into `$(MAKE) -C ../.. fft.o`.
+fft.o: fft.c fft.h
 	$(CC) $(CFLAGS) -c $<
 
 # Desktop-only 16-bit PCM mono WAV decoder -- same category as data_prep.o
@@ -78,5 +86,5 @@ check:
 	cppcheck --enable=all --inconclusive .
 
 clean:
-	$(RM) nn.o data_prep.o audio_features.o wav_reader.o libnn.a libnn.so prune quantize dequantize summary export import tags
+	$(RM) nn.o data_prep.o audio_features.o fft.o wav_reader.o libnn.a libnn.so prune quantize dequantize summary export import tags
 	for d in examples/*/; do $(MAKE) -C "$$d" clean; done

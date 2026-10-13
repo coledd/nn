@@ -9,12 +9,14 @@ export
 images.tar.gz
 import
 kagglecatsanddogs_5340.zip
+monitor
 predict
 prepare_data
 prune
 quantize
 samples.csv
 speech_commands_v0.02.tar.gz
+stm32
 summary
 test
 test.csv

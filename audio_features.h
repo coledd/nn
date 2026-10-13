@@ -43,7 +43,7 @@ typedef struct {
 
 // Precomputes the window and mel filterbank for the given `sample_rate`,
 // `frame_len` (must be a power of 2 -- audio_features_frame() uses an
-// in-place radix-2 FFT), and `num_mel_bins`. Returns NULL on invalid
+// in-place radix-2 FFT, see fft.h), and `num_mel_bins`. Returns NULL on invalid
 // arguments or allocation failure.
 audio_features_t *audio_features_init(int sample_rate, int frame_len, int num_mel_bins);
 void audio_features_free(audio_features_t *af);
