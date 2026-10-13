@@ -1,11 +1,13 @@
 *.a
 *.o
 *.so
+.channels-*
 BCCD_Dataset-*.zip
 annotations.tar.gz
 dataset
 dequantize
 export
+features.csv
 images.tar.gz
 import
 kagglecatsanddogs_5340.zip
@@ -14,6 +16,7 @@ predict
 prepare_data
 prune
 quantize
+replay
 samples.csv
 speech_commands_v0.02.tar.gz
 stm32

@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 600" width="1400" height="600">
+  <title>Prosthetic Hand — EMG features + FC network, calibrated to the wearer (train.c)</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#374151"/>
+    </marker>
+    <marker id="arrow-yellow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#ca8a04"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1400" height="600" fill="#ffffff"/>
+  <text x="700.0" y="38" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#111827">Prosthetic Hand — EMG features + FC network, calibrated to the wearer (train.c)</text>
+  <text x="700.0" y="60" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13.5" fill="#6b7280">examples/prosthetic_hand: emg_features.c → intent_decoder.c → nn.c, all running in the prosthesis</text>
+  <text x="40" y="98" text-anchor="start" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#374151">Feature extraction, every 50 ms over the last 200 ms (400 samples × 8 electrodes)</text>
+  <rect x="40" y="125" width="230" height="110" rx="12" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+  <text x="155.0" y="160.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Surface electrodes</text>
+  <text x="155.0" y="181.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">ring of 8 around the forearm</text>
+  <text x="155.0" y="202.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">ADS1298 front end, 2 kHz</text>
+  <rect x="340" y="125" width="270" height="110" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="475.0" y="160.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Hudgins features</text>
+  <text x="475.0" y="181.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">per electrode: log MAV, log WL,</text>
+  <text x="475.0" y="202.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">zero crossings, slope sign changes</text>
+  <rect x="680" y="125" width="270" height="110" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="815.0" y="160.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Standardize</text>
+  <text x="815.0" y="181.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">each of 32 features by its mean</text>
+  <text x="815.0" y="202.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">and spread in this wearer's calibration</text>
+  <rect x="1060" y="125" width="300" height="110" rx="12" fill="#fef9c3" stroke="#ca8a04" stroke-width="2"/>
+  <text x="1210.0" y="155.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Calibration, at each donning</text>
+  <text x="1210.0" y="176.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">~1 min of prompted movements:</text>
+  <text x="1210.0" y="197.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">feature mean/spread, then the shared</text>
+  <text x="1210.0" y="218.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">model fine-tuned on the device</text>
+  <line x1="270" y1="180" x2="340" y2="180" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="610" y1="180" x2="680" y2="180" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M 1060 180 L 950 180" fill="none" stroke="#ca8a04" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrow-yellow)"/>
+  <text x="1005" y="170" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#ca8a04">mean, spread</text>
+  <path d="M 1210 235 L 1210 330 L 675 330 L 675 358" fill="none" stroke="#ca8a04" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrow-yellow)"/>
+  <path d="M 340 372 L 340 362 L 1010 362 L 1010 372" fill="none" stroke="#ca8a04" stroke-width="2"/>
+  <text x="985" y="322" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#ca8a04">fine-tuned weights (10 passes over the calibration data)</text>
+  <path d="M 815 235 L 815 290 L 160 290 L 160 380" fill="none" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="480" y="282" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#374151">32 standardized features</text>
+  <rect x="40" y="380" width="230" height="110" rx="12" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+  <text x="155.0" y="430.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Input</text>
+  <text x="155.0" y="451.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">32 = 8 electrodes × 4</text>
+  <rect x="340" y="380" width="170" height="110" rx="12" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+  <text x="425.0" y="430.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">FC · GELU</text>
+  <text x="425.0" y="451.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">64 units</text>
+  <rect x="580" y="380" width="170" height="110" rx="12" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+  <text x="665.0" y="430.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">FC · GELU</text>
+  <text x="665.0" y="451.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">32 units</text>
+  <rect x="820" y="380" width="190" height="110" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+  <text x="915.0" y="430.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Output · Softmax</text>
+  <text x="915.0" y="451.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">7 intents</text>
+  <rect x="1080" y="380" width="280" height="110" rx="12" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+  <text x="1220.0" y="415.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Motor command</text>
+  <text x="1220.0" y="436.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">rest if confidence &lt; 0.8,</text>
+  <text x="1220.0" y="457.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">majority of the last 5 decisions,</text>
+  <text x="1220.0" y="478.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">speed from contraction effort</text>
+  <line x1="270" y1="435" x2="340" y2="435" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="510" y1="435" x2="580" y2="435" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="750" y1="435" x2="820" y2="435" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="1010" y1="435" x2="1080" y2="435" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="700.0" y="535" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#374151">REST · HAND_OPEN · HAND_CLOSE · WRIST_PRONATION · WRIST_SUPINATION · WRIST_FLEXION · WRIST_EXTENSION</text>
+  <text x="700.0" y="565" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#6b7280">4,423 parameters · shared model trained on 28 people, then adapted to each wearer</text>
+</svg>
