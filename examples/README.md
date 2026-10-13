@@ -29,7 +29,7 @@ Classifies a short burst of 3-axis accelerometer readings as still, shake, tilt 
 
 <a href="fall_detection/README.md"><img src="fall_detection/figures/banner.svg" alt="Example 03, Fall Detection" width="100%"></a>
 
-Continuously monitors a simulated accelerometer stream for a fall — a brief free fall, an impact, then a long stillness — and labels every timestep, as a fall-detection pendant must. It trains a plain RNN, a GRU and an LSTM on identical data and measures each over seven runs: **the RNN and LSTM caught every fall with no false alarms in all seven**; the GRU missed some falls in three.
+Continuously monitors a simulated accelerometer stream for a fall — a brief free fall, an impact, then a long stillness — and labels every timestep, as a fall-detection pendant must. It trains a plain RNN, a GRU and an LSTM on identical data and measures each over twenty runs: **all three caught every fall with no false alarms, every time** — the RNN trains fastest, the GRU is the most exact timestep by timestep.
 
 <a href="wake_word_detection/README.md"><img src="wake_word_detection/figures/banner.svg" alt="Example 04, Wake Word Detection" width="100%"></a>
 

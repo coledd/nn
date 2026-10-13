@@ -2,7 +2,7 @@
   <img src="figures/banner.svg" alt="Fall Detection: watching a live accelerometer stream for the free-fall, impact and stillness of a fall, with three recurrent layers." width="100%">
 </p>
 
-> **Abstract.** A fall-detection pendant watches its wearer's movement continuously and has to tell a real fall from everything else a body does. A fall is a pattern over time — a brief free fall, a sharp impact, then a long stillness at an unusual orientation — so this example classifies a live 3-axis accelerometer stream one sample at a time with a recurrent network, and labels every timestep rather than a whole window. It trains three recurrent layer types on identical synthetic data: a plain RNN, a GRU and an LSTM, with 337 to 1,297 parameters. Measured over seven training runs each, the RNN and the LSTM detected every fall in every run with no false alarms. The GRU, which stops training earliest, missed some falls in three of its seven runs. The data is simulated, so these numbers measure the method, not a product.
+> **Abstract.** A fall-detection pendant watches its wearer's movement continuously and has to tell a real fall from everything else a body does. A fall is a pattern over time — a brief free fall, a sharp impact, then a long stillness at an unusual orientation — so this example classifies a live 3-axis accelerometer stream one sample at a time with a recurrent network, and labels every timestep rather than a whole window. It trains three recurrent layer types on identical synthetic data: a plain RNN, a GRU and an LSTM, with 337 to 1,297 parameters. Over twenty training runs each, all three detected every test fall with no false alarms, every time. The plain RNN trains fastest, the GRU is the most accurate timestep by timestep, and the LSTM sits between them. The data is simulated, so these numbers measure the method, not a product.
 
 | | |
 |---|---|
@@ -10,7 +10,7 @@
 | **Data** | Synthetic, generated on the fly by `fall_data.[ch]`: daily-activity motion, with one fall spliced in at a random point in half the sequences |
 | **Model** | One recurrent layer of 16 units (RNN, GRU or LSTM) → sigmoid; 337 / 977 / 1,297 parameters |
 | **Hardware** | Any low-power microcontroller with a 3-axis accelerometer; the largest model is under 6 KB of float weights |
-| **Result** | RNN and LSTM: 100% of falls detected and 0 false alarms in 7 of 7 runs; GRU: 100% recall in 4 of 7 runs |
+| **Result** | All three: 100% of falls detected and 0 false alarms in 20 of 20 runs each |
 
 ## 1. The problem
 
@@ -73,7 +73,9 @@ Each layer is followed by one sigmoid output. A GRU has about three times an RNN
 
 ### 4.2 Training and testing
 
-All three train with `nn_train()` once per timestep, against that timestep's own label, and stop early once validation error hasn't improved for 5 epochs. Training and validation sequences are synthesized fresh. `test.c` then evaluates a saved model on 100 new sequences, 50 normal and 50 with a fall, and reports:
+All three train with `nn_train()` once per timestep, against that timestep's own label, on 100 freshly synthesized sequences per epoch. After each epoch they score a fixed validation set of 200 sequences, 100 normal and 100 with a fall, the same way `test.c` does, and keep the epoch with the **fewest detection mistakes** — missed falls plus false alarms — using mean error only to break ties. Training stops after 10 epochs without a better one.
+
+Selecting on detection mistakes rather than on mean error matters here. A brief spike above 0.5 during normal activity costs a single timestep's worth of error but is a whole false alarm, so the epoch with the lowest error can be one that false-alarms. Replaying both rules over the same 60 training runs per architecture, selecting on error kept a false-alarming model in 3 (RNN), 10 (GRU) and 6 (LSTM) of the runs; selecting on mistakes kept none. `test.c` then evaluates a saved model on 100 new sequences, 50 normal and 50 with a fall, and reports:
 
 - **per-timestep accuracy** over all 15,000 timesteps;
 - **recall:** falls whose first detection (output at or above 0.5) came at or after the onset — a trigger before the onset counts as a miss;
@@ -82,28 +84,25 @@ All three train with `nn_train()` once per timestep, against that timestep's own
 
 ## 5. Results
 
-Each architecture was trained and tested seven times, with a different random seed each run.
+Each architecture was trained and tested twenty times, with a different random seed each run.
 
 <p align="center">
-  <img src="figures/runs.svg" alt="Dot plots of seven runs per architecture. Epochs to early stop: RNN median 13 with one run at 86, GRU median 10, LSTM median 30. Per-timestep test accuracy: RNN median 99.4 percent, GRU 98.6, LSTM 99.7. Recall: RNN and LSTM 100 percent in every run; GRU 100 percent in four runs, 98, 92 and 88 percent in the others, the last with 30 percent false alarms." width="900">
+  <img src="figures/runs.svg" alt="Dot plots of twenty runs per architecture. Training epochs before early stopping, on a log scale: RNN median 34 with two runs at the 500-epoch cap, GRU median 99, LSTM median 41. Per-timestep test accuracy: RNN and GRU median 100 percent, LSTM median 99.8 percent with a low of 98.7." width="900">
 </p>
-<p align="center"><sub><b>Figure 6.</b> Seven training runs per architecture, each tested on 100 fresh sequences. Each dot is one run; the bar is the median.</sub></p>
+<p align="center"><sub><b>Figure 6.</b> Twenty training runs per architecture, each tested on 100 fresh sequences. Each dot is one run; the bar is the median. Every run of every architecture detected all 50 falls with no false alarms, so detection isn't plotted.</sub></p>
 
 | | RNN | GRU | LSTM |
 |---|---|---|---|
-| Epochs to early stop, median (range) | 13 (8-86) | 10 (6-18) | 30 (14-42) |
-| Per-timestep accuracy, median (range) | 99.35% (96.95-100%) | 98.55% (97.02-99.41%) | 99.69% (97.99-99.94%) |
-| Runs with every fall detected | 7 of 7 | 4 of 7 | 7 of 7 |
-| Runs with no false alarms | 7 of 7 | 5 of 7 | 7 of 7 |
+| Runs with every fall detected and no false alarms | 20 of 20 | 20 of 20 | 20 of 20 |
+| Per-timestep accuracy, median (range) | 100.00% (99.69-100%) | 100.00% (99.93-100%) | 99.79% (98.74-100%) |
+| Training epochs, median (range) | 34 (16-500) | 99 (35-386) | 41 (18-187) |
 | Mean detection latency | 0 timesteps | 0 timesteps | 0 timesteps |
 
-**The plain RNN is enough for this task.** With Adam, it reached 100% recall with no false alarms in every run, usually within 8-20 epochs. Its hidden state is pushed through tanh at every step, but the evidence it needs — the free fall, the impact, and a magnitude that settles at 1 g with the axes at new values — is strong enough to hold.
+**All three detect falls reliably.** Every saved model, in all 60 runs, caught all 50 test falls and raised no false alarms. The free fall is unlike anything in normal activity, and every model flagged it at once: the mean time from onset to the first detection was 0.0 timesteps in every run, to the one decimal `test` prints.
 
-**The LSTM is the most accurate per timestep** (median 99.7%), and was also perfect on recall and false alarms in every run. It takes the longest to train, 14-42 epochs, and has the most parameters.
+**The plain RNN is enough for this task, and trains fastest** (median 34 epochs, with Adam). Its hidden state is pushed through tanh at every step, but the evidence it needs — the free fall, the impact, and a magnitude that settles at 1 g with the axes at new values — is strong enough to hold. In two runs its validation error kept creeping down at zero mistakes until the 500-epoch cap; it costs a few seconds.
 
-**The GRU is the least reliable here.** It early-stops after only 6-18 epochs, and in three of seven runs the saved model missed some falls (98%, 92% and 88% recall); one of those also raised false alarms on 30% of the normal sequences. When it does converge, it detects falls as well as the others. For a device that has to be trusted, it's the one that would need more care in training.
-
-Detection was immediate: every model, in every run, averaged 0.0 timesteps from the onset to the first detection (to the one decimal `test` prints). The free fall is unlike anything in normal activity, and all three flag it at once. Recall and false alarms, which a user would notice, matter more than per-timestep accuracy.
+**The GRU is the most accurate timestep by timestep** — 100.00% in 18 of 20 runs — but takes the longest to train, a median of 99 epochs with plain SGD. **The LSTM** trains in a median of 41 epochs and is slightly less exact timestep by timestep (median 99.79%, low 98.74%), without missing any detection. Per-timestep accuracy is the least important of these numbers: recall and false alarms are what a wearer would notice, and those are perfect for all three. Every run of all three trained in under 6 seconds on a desktop.
 
 ## 6. Running on the device
 
@@ -150,23 +149,24 @@ Sample FALL sequence (|accel| in g, every 3rd timestep):
   ...
 ```
 
-`./train_rnn model_rnn.txt`, then `./test model_rnn.txt` (one of the seven runs in figure 6):
+`./train_rnn model_rnn.txt`, then `./test model_rnn.txt` (one of the twenty runs in figure 6):
 
 ```
-train error, validation error, learning rate
-0.01248, 0.02663, 0.01000
-0.01354, 0.01415, 0.01000
-0.01688, 0.00530, 0.01000
+train error, validation error, validation mistakes, learning rate
+0.01945, 0.01107, 0, 0.01000
+0.01014, 0.03653, 0, 0.01000
+0.01338, 0.00482, 1, 0.01000
 ...
-0.01834, 0.00480, 0.01000
-0.02182, 0.00001, 0.01000
-No validation improvement for 5 epochs (best: 0.00000) -- stopping early.
-Final (last epoch) train error: 0.021822, validation error: 0.000007
-Best validation error (the model saved to disk): 0.000000
-Training epochs: 13
-Per-timestep accuracy: 3000/3000 = 100.00%
-Falls detected: 10/10
-False alarms (normal sequences that ever triggered): 0/10
+0.00000, 0.00000, 0, 0.01000
+0.00000, 0.00000, 0, 0.01000
+No validation improvement for 10 epochs (best: 0 mistakes, error 0.00000) -- stopping early.
+Final (last epoch) train error: 0.000000, validation error: 0.000001
+Best validation (the model saved to disk): 0 mistakes, error 0.000000
+Training epochs: 34
+Validation set, last epoch's weights (./test evaluates the saved model on fresh data):
+Per-timestep accuracy: 30000/30000 = 100.00%
+Falls detected: 100/100
+False alarms (normal sequences that ever triggered): 0/100
 Average detection latency (timesteps after true onset): 0.0
 ```
 ```
@@ -177,7 +177,7 @@ False alarms (normal sequences that ever triggered): 0/50 = 0.0%
 Average detection latency (timesteps after true onset): 0.0
 ```
 
-The training program's own summary is a quick check on 10 + 10 fresh sequences; `test` is the larger, independent evaluation.
+The training program's summary scores its last epoch on the validation set; `test` evaluates the saved model on sequences it has never seen.
 
 ## References
 

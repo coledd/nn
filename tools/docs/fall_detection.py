@@ -24,18 +24,20 @@ ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "examples", "fall_det
 OUT = os.path.join(ROOT, "figures")
 MODELS = ["RNN", "GRU", "LSTM"]
 
-# Measured with the shipped code: seven train + test runs per architecture
-# (train_<arch>, then test on 50 normal + 50 fall sequences).
+# Measured with the shipped code: twenty train + test runs per architecture
+# (train_<arch>, then test on 50 normal + 50 fall sequences). Every run
+# detected all 50 falls with no false alarms, so only epochs and
+# per-timestep accuracy vary.
 RUNS = {
-    "RNN": {"epochs": [86, 12, 20, 13, 13, 18, 8],
-            "accuracy": [100.00, 96.95, 99.35, 99.13, 100.00, 99.75, 97.47],
-            "recall": [100, 100, 100, 100, 100, 100, 100], "false_alarms": [0, 0, 0, 0, 0, 0, 0]},
-    "GRU": {"epochs": [8, 10, 18, 6, 8, 10, 10],
-            "accuracy": [97.02, 97.08, 98.55, 97.16, 99.27, 99.41, 98.88],
-            "recall": [100, 100, 100, 92, 100, 88, 98], "false_alarms": [0, 0, 0, 2, 0, 30, 0]},
-    "LSTM": {"epochs": [30, 30, 25, 14, 39, 32, 42],
-             "accuracy": [97.99, 99.69, 99.94, 99.94, 99.84, 99.29, 98.91],
-             "recall": [100, 100, 100, 100, 100, 100, 100], "false_alarms": [0, 0, 0, 0, 0, 0, 0]},
+    "RNN": {"epochs": [34, 25, 65, 96, 104, 500, 34, 24, 26, 83, 54, 500, 17, 66, 40, 25, 28, 16, 33, 33],
+            "accuracy": [100.00, 99.99, 100.00, 100.00, 100.00, 100.00, 99.99, 100.00, 99.99, 100.00,
+                         100.00, 100.00, 100.00, 100.00, 100.00, 99.69, 99.99, 99.99, 100.00, 99.87]},
+    "GRU": {"epochs": [101, 386, 278, 97, 74, 199, 118, 36, 35, 185, 114, 43, 89, 90, 84, 86, 113, 89, 148, 185],
+            "accuracy": [100.00, 100.00, 100.00, 100.00, 100.00, 100.00, 100.00, 99.99, 100.00, 100.00,
+                         100.00, 100.00, 100.00, 100.00, 100.00, 99.93, 100.00, 100.00, 100.00, 100.00]},
+    "LSTM": {"epochs": [83, 29, 18, 116, 46, 127, 19, 38, 37, 187, 24, 35, 52, 27, 18, 29, 105, 90, 44, 104],
+             "accuracy": [99.83, 99.75, 99.69, 99.73, 98.74, 100.00, 99.33, 99.95, 99.49, 100.00,
+                          99.55, 99.97, 99.97, 98.98, 99.20, 99.63, 99.93, 99.99, 99.95, 100.00]},
 }
 
 HARNESS = r"""
@@ -69,8 +71,8 @@ def make_banner():
            "Fall Detection",
            ["Watching a live accelerometer stream for the free-fall,",
             "impact and stillness of a fall, with three recurrent layers."],
-           [("100%", "falls detected,", "RNN and LSTM"),
-            ("0", "false alarms,", "RNN and LSTM"),
+           [("100%", "falls detected,", "all 60 runs"),
+            ("0", "false alarms,", "all 60 runs"),
             ("337", "parameters,", "smallest model")],
            ["3-axis accelerometer", "Synthetic data", "RNN · GRU · LSTM", "150-step windows", "Per-timestep labels"])
 
@@ -107,28 +109,28 @@ def stream_figure():
 
 
 def runs_figure():
-    fig, axes = plt.subplots(1, 3, figsize=(11, 3.9))
+    fig, axes = plt.subplots(1, 2, figsize=(11, 3.9))
     rng = np.random.default_rng(1)
-    panels = [("epochs", "Training epochs to early stop", None),
-              ("accuracy", "Per-timestep test accuracy", (95, 100.6)),
-              ("recall", "Falls detected (recall)", (85, 101.5))]
-    for ax, (key, title, ylim) in zip(axes, panels):
+    panels = [("epochs", "Training epochs before early stopping"),
+              ("accuracy", "Per-timestep test accuracy")]
+    for ax, (key, title) in zip(axes, panels):
         for i, m in enumerate(MODELS):
             ys = np.array(RUNS[m][key], float)
-            xs = i + rng.uniform(-0.12, 0.12, len(ys))
-            ax.scatter(xs, ys, s=42, color=SERIES[i], edgecolor=style.SURFACE, linewidth=1.5, zorder=3)
-            ax.plot([i - 0.22, i + 0.22], [np.median(ys)] * 2, color=INK, lw=2, zorder=4)
+            xs = i + rng.uniform(-0.14, 0.14, len(ys))
+            ax.scatter(xs, ys, s=36, color=SERIES[i], edgecolor=style.SURFACE, linewidth=1.5, zorder=3)
+            ax.plot([i - 0.24, i + 0.24], [np.median(ys)] * 2, color=INK, lw=2, zorder=4)
         ax.set_xticks(range(3), MODELS)
         ax.set_xlim(-0.6, 2.6)
         ax.set_title(title, loc="left")
-        if ylim:
-            ax.set_ylim(*ylim)
-            ax.yaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
-        else:
-            ax.set_ylim(0, 95)
-    axes[2].annotate("30% false alarms\nin this run", (1.0, 88), xytext=(1.35, 90), fontsize=8.5, color=INK_2,
-                     arrowprops=dict(arrowstyle="-", color=MUTED, lw=0.8))
-    fig.subplots_adjust(wspace=0.3)
+    axes[0].set_yscale("log")
+    axes[0].set_ylim(10, 700)
+    axes[0].set_yticks([10, 20, 50, 100, 200, 500], ["10", "20", "50", "100", "200", "500"])
+    axes[0].minorticks_off()
+    axes[0].annotate("500-epoch cap", (0.0, 500), xytext=(0.3, 560), fontsize=8.5, color=INK_2, va="center")
+    axes[1].set_ylim(98.5, 100.1)
+    axes[1].set_yticks([98.5, 99.0, 99.5, 100.0])
+    axes[1].yaxis.set_major_formatter(lambda v, _: f"{v:.1f}%")
+    fig.subplots_adjust(wspace=0.25)
     style.save(fig, os.path.join(OUT, "runs.svg"))
 
 

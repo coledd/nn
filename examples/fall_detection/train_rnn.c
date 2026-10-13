@@ -16,30 +16,15 @@
 // ordinary activity, flipping to 1 at the instant a fall begins and staying
 // 1 for the rest of the monitoring window.
 //
-// Measured against train_gru.c/train_lstm.c on this exact task: all three
-// eventually reach the same ceiling (100% per-timestep accuracy, every fall
-// detected, zero false alarms) -- this synthetic task turns out learnable
-// by a plain RNN too, given enough epochs, and how many epochs is mostly a
-// question of optimizer, not just architecture. With plain SGD (what
-// train_gru.c/train_lstm.c both still use), this file consistently needed
-// 60-200+ epochs against their well-under-50 -- confirming that without a
-// gate to protect the free-fall signal from being squashed back through
-// tanh (and diluted by the recurrent weights) on every single quiet
-// timestep afterward, gradient descent has to work harder to find weights
-// that hold it steady anyway. Switching this file (only) to
-// nn_set_optimizer()'s NN_OPTIMIZER_ADAM below changes that: across several
-// runs it now converges in 11-25 epochs, matching or beating the gated
-// architectures' SGD numbers outright. That's NOT "Adam makes gating
-// unnecessary", though -- trying the same switch on train_gru.c/
-// train_lstm.c did not reliably help (occasionally much faster, but also
-// occasionally much slower than their existing SGD numbers, including one
-// run that never triggered early stopping at all), which is why they stay
-// on SGD -- see this directory's README for the full measured comparison.
-// The honest takeaway: Adam specifically compensates for the exact
-// difficulty an un-gated hidden state has on a task like this one; it
-// isn't a general win for every recurrent layer type here. Every sequence
-// is synthesized on the fly (see fall_data.[ch]) -- there is nothing to
-// download.
+// Measured against train_gru.c/train_lstm.c on this exact task, over 20
+// training runs each: all three detect every fall with no false alarms. A
+// plain RNN is enough here -- the evidence (the free fall, the impact, the
+// changed orientation afterward) is strong enough to survive being pushed
+// through tanh at every step -- and with nn_set_optimizer()'s
+// NN_OPTIMIZER_ADAM below it needs the fewest epochs of the three (median
+// 34). See this directory's README for the measured comparison. Every
+// sequence is synthesized on the fly (see fall_data.[ch]) -- there is
+// nothing to download.
 
 #include <float.h>
 #include <math.h>
@@ -51,12 +36,16 @@
 #include "fall_data.h"
 #include "nn.h"
 
-// See examples/character_recognition/train_cnn.c's identical constants for the early-stopping rationale.
-#define EARLY_STOPPING_PATIENCE 5
+// Early stopping keeps the epoch that makes the fewest detection mistakes
+// on the validation set (see validate()), and gives up after this many
+// epochs without a better one. Mistakes change in whole steps and often sit
+// level for a few epochs while the network is still improving, so this is
+// longer than examples/character_recognition's.
+#define EARLY_STOPPING_PATIENCE 10
 #define MAX_EPOCHS 500
 
-#define SEQUENCES_PER_EPOCH 100          // freshly-synthesized training sequences per epoch
-#define VALIDATION_SEQUENCES_PER_CLASS 10 // fixed, generated once, for a stable early-stopping signal
+#define SEQUENCES_PER_EPOCH 100           // freshly-synthesized training sequences per epoch
+#define VALIDATION_SEQUENCES_PER_CLASS 100 // fixed, generated once, for a stable early-stopping signal
 
 // Prints one freshly-generated example sequence of each kind (normal
 // activity, and a fall) to stdout, condensed to acceleration magnitude and
@@ -103,6 +92,42 @@ static float run_sequence(nn_t *nn, float window[SEQUENCE_LEN][NUM_AXES], float 
   return total_err / (float)SEQUENCE_LEN;
 }
 
+// Scores the network on the validation set the way test.c does: a fall
+// sequence counts as missed unless the first alarm comes at or after the
+// fall's onset, and a normal sequence counts as a false alarm if it ever
+// alarms. Returns missed falls plus false alarms; *error gets the mean
+// per-timestep error, which only breaks ties between epochs with the same
+// number of mistakes. Mean error alone is the wrong thing to select on: a
+// brief spike above 0.5 during normal activity costs a single timestep's
+// worth of error but is a whole false alarm, so the lowest-error epoch can
+// be one that false-alarms -- measured over 60 training runs per
+// architecture, selecting on error kept such a model in up to a third of
+// runs, and selecting on mistakes kept none.
+static int validate(nn_t *nn, float window[][SEQUENCE_LEN][NUM_AXES], float label[][SEQUENCE_LEN],
+                    const bool *is_fall, int count, float *error)
+{
+  int mistakes = 0;
+  float total_err = 0.0f;
+  for (int i = 0; i < count; i++) {
+    nn_reset_state(nn);
+    int onset = -1, first_alarm = -1;
+    for (int t = 0; t < SEQUENCE_LEN; t++) {
+      float target[1] = {label[i][t]};
+      total_err += nn_error(nn, window[i][t], target);
+      if (label[i][t] >= 0.5f && onset < 0)
+        onset = t;
+      if (nn->neuron[nn->depth - 1][0] >= 0.5f && first_alarm < 0)
+        first_alarm = t;
+    }
+    if (is_fall[i])
+      mistakes += !(onset >= 0 && first_alarm >= onset);
+    else
+      mistakes += first_alarm >= 0;
+  }
+  *error = total_err / (float)(count * SEQUENCE_LEN);
+  return mistakes;
+}
+
 int main(int argc, char *argv[]) {
   if (argc != 2) {
     printf("Usage: %s <model-file>\n", argv[0]);
@@ -118,10 +143,9 @@ int main(int argc, char *argv[]) {
   // Adam's per-parameter update is normalized by that parameter's own
   // recent gradient magnitude (see nn_optimizer_apply() in nn.c), so it
   // takes effective steps roughly the size of `rate` itself regardless of
-  // the raw gradient's scale, unlike SGD's `rate * raw_gradient`. The rate
-  // SGD used here (0.05) is confirmed too large under Adam (diverges within
-  // the first few epochs); 0.01 converges cleanly and quickly -- see this
-  // file's top comment for the measured epoch-count comparison.
+  // the raw gradient's scale, unlike SGD's `rate * raw_gradient`. The 0.05
+  // that train_gru.c/train_lstm.c use with SGD diverges under Adam within the
+  // first few epochs; 0.01 converges cleanly.
   float learning_rate = 0.01f;
   float annealing = 1.0f;
   // End of tunable parameters
@@ -209,17 +233,16 @@ int main(int argc, char *argv[]) {
   // See examples/character_recognition/train_cnn.c's identical block for why this baseline matters when
   // resuming an existing model.
   float best_validation_error = FLT_MAX;
+  int best_validation_mistakes = 2 * VALIDATION_SEQUENCES_PER_CLASS + 1;
   if (resuming) {
-    float total = 0.0f;
-    for (int i = 0; i < num_validation; i++)
-      total += run_sequence(nn, val_window[i], val_label[i], 0.0f, false);
-    best_validation_error = total / (float)num_validation;
-    printf("Starting validation error (existing model): %.5f\n", best_validation_error);
+    best_validation_mistakes = validate(nn, val_window, val_label, val_is_fall, num_validation, &best_validation_error);
+    printf("Starting validation (existing model): %d mistakes, error %.5f\n", best_validation_mistakes,
+           best_validation_error);
   }
   int epochs_since_improvement = 0;
   static float window[SEQUENCE_LEN][NUM_AXES];
   static float label[SEQUENCE_LEN];
-  printf("train error, validation error, learning rate\n");
+  printf("train error, validation error, validation mistakes, learning rate\n");
   while (epochs < MAX_EPOCHS) {
     float total_train_error = 0.0f;
     for (int j = 0; j < SEQUENCES_PER_EPOCH; j++) {
@@ -230,14 +253,13 @@ int main(int argc, char *argv[]) {
       total_train_error += run_sequence(nn, window, label, learning_rate, true);
     }
     train_error = total_train_error / (float)SEQUENCES_PER_EPOCH;
-    float total_validation_err = 0.0f;
-    for (int i = 0; i < num_validation; i++)
-      total_validation_err += run_sequence(nn, val_window[i], val_label[i], 0.0f, false);
-    validation_error = total_validation_err / (float)num_validation;
+    int validation_mistakes = validate(nn, val_window, val_label, val_is_fall, num_validation, &validation_error);
     epochs++;
-    printf("%.5f, %.5f, %.5f\n", train_error, validation_error, learning_rate);
+    printf("%.5f, %.5f, %d, %.5f\n", train_error, validation_error, validation_mistakes, learning_rate);
     learning_rate *= annealing;
-    if (validation_error < best_validation_error) {
+    if (validation_mistakes < best_validation_mistakes ||
+        (validation_mistakes == best_validation_mistakes && validation_error < best_validation_error)) {
+      best_validation_mistakes = validation_mistakes;
       best_validation_error = validation_error;
       epochs_since_improvement = 0;
       // Save back in the same format the model was loaded from when
@@ -254,8 +276,8 @@ int main(int argc, char *argv[]) {
     } else {
       epochs_since_improvement++;
       if (epochs_since_improvement >= EARLY_STOPPING_PATIENCE) {
-        printf("No validation improvement for %d epochs (best: %.5f) -- stopping early.\n",
-               EARLY_STOPPING_PATIENCE, best_validation_error);
+        printf("No validation improvement for %d epochs (best: %d mistakes, error %.5f) -- stopping early.\n",
+               EARLY_STOPPING_PATIENCE, best_validation_mistakes, best_validation_error);
         break;
       }
     }
@@ -298,8 +320,10 @@ int main(int argc, char *argv[]) {
     }
   }
   printf("Final (last epoch) train error: %f, validation error: %f\n", train_error, validation_error);
-  printf("Best validation error (the model saved to disk): %f\n", best_validation_error);
+  printf("Best validation (the model saved to disk): %d mistakes, error %f\n", best_validation_mistakes,
+         best_validation_error);
   printf("Training epochs: %d\n", epochs);
+  printf("Validation set, last epoch's weights (./test evaluates the saved model on fresh data):\n");
   printf("Per-timestep accuracy: %d/%d = %.2f%%\n", correct_timesteps, total_timesteps,
          100.0f * (float)correct_timesteps / (float)total_timesteps);
   printf("Falls detected: %d/%d\n", falls_detected, falls_total);
