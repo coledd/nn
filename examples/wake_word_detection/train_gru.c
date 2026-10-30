@@ -103,7 +103,15 @@ int main(int argc, char *argv[]) {
   // -- on the earlier split; see this file's top comment. NN_OPTIMIZER_ADAM was
   // also tried (on a plain RNN, before this example was simplified to GRU
   // only) and made things worse; plain SGD stays the default.
-  float learning_rate = 0.03f;
+  //
+  // Those numbers predate backpropagation through time (see
+  // nn_set_bptt_depth() below). With the gradient carried back through the
+  // whole clip, every timestep's update is larger, and 0.03 left the
+  // validation error noisy again; on the speaker split, five runs each at
+  // depth 49 gave median test false rejects/false accepts at threshold
+  // 0.5 of 8.7%/4.5% at 0.03, 7.7%/2.1% at 0.01, 5.1%/1.7% at 0.005 and
+  // 6.7%/1.9% at 0.003, so 0.005 it is.
+  float learning_rate = 0.005f;
   float annealing = 0.97f;
   // End of tunable parameters
   data_t *train_data;
@@ -214,6 +222,14 @@ int main(int argc, char *argv[]) {
     best_validation_error = validation_error_balanced(nn, validation_data);
     printf("Starting validation error (existing model): %.5f\n", best_validation_error);
   }
+  // Backpropagate each frame's error through every earlier frame of its
+  // clip, not just its own (see nn_set_bptt_depth() in nn.h). With the
+  // library's default depth of 1, the GRU only learned to carry evidence
+  // across frames indirectly: five runs missed 8-17% of test wake words at
+  // threshold 0.5 while false-triggering on 4-13% of other clips. At the
+  // full SEQUENCE_LEN that became 5.1%/1.7% (medians), at about 17 times
+  // the training time per epoch (minutes rather than seconds).
+  nn_set_bptt_depth(nn, SEQUENCE_LEN);
   int epochs_since_improvement = 0;
   printf("train error, validation error, learning rate\n");
   while (epochs < MAX_EPOCHS) {

@@ -33,7 +33,7 @@ Continuously monitors a simulated accelerometer stream for a fall — a brief fr
 
 <a href="wake_word_detection/README.md"><img src="wake_word_detection/figures/banner.svg" alt="Example 04, Wake Word Detection" width="100%"></a>
 
-The always-on listener in front of a voice-controlled device: each second of real speech from Google's Speech Commands becomes 49 frames of log-mel energies (`audio_features.[ch]`, shared and firmware-ready), which a small CNN reads as one 49 × 20 image to decide whether it was the wake word, "marvin". Tested on speakers it never trained on, with its threshold set on validation data, it **misses about 8% of wake words at 1% false triggers**, against far more of both for a GRU baseline on the same data.
+The always-on listener in front of a voice-controlled device: each second of real speech from Google's Speech Commands becomes 49 frames of log-mel energies (`audio_features.[ch]`, shared and firmware-ready), which a small CNN reads as one 49 × 20 image to decide whether it was the wake word, "marvin". Tested on speakers it never trained on, with its threshold set on validation data, it **misses about 8% of wake words at 1% false triggers**. A GRU baseline a third its size, trained with backpropagation through the whole clip, ties it at the default threshold but misses about 13% at 1% false triggers.
 
 <a href="image_classification/README.md"><img src="image_classification/figures/banner.svg" alt="Example 05, Image Classification" width="100%"></a>
 

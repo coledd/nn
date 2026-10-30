@@ -745,29 +745,44 @@ static void nn_dropout_backward(nn_t *nn, int layer, float *grad_in)
 // comment in nn.h): only this timestep's own local contribution to
 // dL/d(gate preacts) is computed here; nn->lstm_cache[layer]'s cached
 // cell_prev/hidden_prev are read as given constants, and no gradient is
-// propagated into the previous timestep's cell or hidden state.
-static void nn_lstm_backward(nn_t *nn, int layer, const float *dh)
+// propagated into the previous timestep's cell or hidden state here.
+// nn_set_bptt_depth() adds that, in nn_bptt_backward().
+//
+// nn_lstm_backward_step() is the same computation for any one timestep,
+// given that timestep's cache (lstm_cache's layout) and where to write its
+// gate gradients; nn_bptt_backward() uses it for earlier timesteps, where
+// dc_in carries the cell-state gradient back from the timestep after it
+// and dc_out receives this timestep's total, to carry further. Both are
+// NULL for the current timestep, which nothing later feeds.
+static void nn_lstm_backward_step(int hidden, const float *cache, const float *dh, const float *dc_in, float *grad, float *dc_out)
 {
-  const int hidden = (int)nn->width[layer];
-  const float *cache = nn->lstm_cache[layer];
   const float *c_prev = cache + 0 * hidden;
   const float *gate_i = cache + 2 * hidden;
   const float *gate_f = cache + 3 * hidden;
   const float *gate_g = cache + 4 * hidden;
   const float *gate_o = cache + 5 * hidden;
   const float *tanh_c = cache + 6 * hidden;
-  float *grad = nn->lstm_gate_grad[layer]; // segments: [0,h)=i, [h,2h)=f, [2h,3h)=g, [3h,4h)=o
+  // grad segments: [0,h)=i, [h,2h)=f, [2h,3h)=g, [3h,4h)=o
 
   for (int j = 0; j < hidden; j++) {
-    // dh's contribution to the cell state, through h_t = o_t * tanh(c_t).
-    // No additional term from a later timestep's cell gradient -- that's
-    // exactly the truncation described above.
+    // dh's contribution to the cell state, through h_t = o_t * tanh(c_t),
+    // plus, for an earlier timestep under nn_set_bptt_depth(), the cell
+    // gradient carried back from the timestep after it.
     float dc = dh[j] * gate_o[j] * (1.0f - tanh_c[j] * tanh_c[j]);
+    if (dc_in)
+      dc += dc_in[j];
+    if (dc_out)
+      dc_out[j] = dc;
     grad[0 * hidden + j] = dc * gate_g[j] * gate_i[j] * (1.0f - gate_i[j]);       // d(input gate preact)
     grad[1 * hidden + j] = dc * c_prev[j] * gate_f[j] * (1.0f - gate_f[j]);       // d(forget gate preact)
     grad[2 * hidden + j] = dc * gate_i[j] * (1.0f - gate_g[j] * gate_g[j]);       // d(cell-candidate preact)
     grad[3 * hidden + j] = dh[j] * tanh_c[j] * gate_o[j] * (1.0f - gate_o[j]);    // d(output gate preact)
   }
+}
+
+static void nn_lstm_backward(nn_t *nn, int layer, const float *dh)
+{
+  nn_lstm_backward_step((int)nn->width[layer], nn->lstm_cache[layer], dh, NULL, nn->lstm_gate_grad[layer], NULL);
 }
 
 // Backward pass for one GRU layer's own internal gates, given `dh` -- the
@@ -790,17 +805,19 @@ static void nn_lstm_backward(nn_t *nn, int layer, const float *dh)
 // Truncated BPTT, depth 1 (same simplification as LAYER_TYPE_RNN/LSTM --
 // see their comments in nn.h): only this timestep's own local contribution
 // is computed; nn->gru_cache[layer]'s cached hidden_prev is read as a given
-// constant, and no gradient is propagated into the previous timestep.
-static void nn_gru_backward(nn_t *nn, int layer, const float *dh)
+// constant, and no gradient is propagated into the previous timestep here.
+// nn_set_bptt_depth() adds that, in nn_bptt_backward().
+//
+// nn_gru_backward_step() is the same computation for any one timestep,
+// given its cache (gru_cache's layout) -- see nn_lstm_backward_step().
+static void nn_gru_backward_step(int hidden, const float *cache, const float *dh, float *grad)
 {
-  const int hidden = (int)nn->width[layer];
-  const float *cache = nn->gru_cache[layer];
   const float *h_prev = cache + 0 * hidden;
   const float *gate_r = cache + 1 * hidden;
   const float *gate_z = cache + 2 * hidden;
   const float *gate_n = cache + 3 * hidden;
   const float *n_recur_raw = cache + 4 * hidden;
-  float *grad = nn->gru_gate_grad[layer]; // segments: [0,h)=reset, [h,2h)=update, [2h,3h)=candidate
+  // grad segments: [0,h)=reset, [h,2h)=update, [2h,3h)=candidate
 
   for (int j = 0; j < hidden; j++) {
     float dz = dh[j] * (gate_n[j] - h_prev[j]);                      // dL/d(update gate output)
@@ -811,6 +828,232 @@ static void nn_gru_backward(nn_t *nn, int layer, const float *dh)
     grad[1 * hidden + j] = dz * gate_z[j] * (1.0f - gate_z[j]);      // d(update gate preact)
     grad[2 * hidden + j] = dn_preact;                                // d(candidate preact)
   }
+}
+
+static void nn_gru_backward(nn_t *nn, int layer, const float *dh)
+{
+  nn_gru_backward_step((int)nn->width[layer], nn->gru_cache[layer], dh, nn->gru_gate_grad[layer]);
+}
+
+// One recurrent layer's backpropagation-through-time state (see bptt_depth's
+// comment in nn.h). `history` is a ring of `slots` (= bptt_depth - 1) past
+// timesteps, most recent at head - 1, of which the last `count` are from
+// the current sequence. Each slot is the layer's input at that timestep
+// (width[layer - 1] floats) followed by the same values the layer's backward
+// pass reads from its live caches: for RNN, the previous hidden state and
+// this timestep's preact (2 * width); for LSTM, a copy of lstm_cache
+// (7 * width); for GRU, of gru_cache (5 * width). The rest is scratch for
+// nn_bptt_backward(): the gradients it adds up for this layer's weights and
+// biases, and one timestep's hidden-state, cell-state and gate gradients.
+struct nn_bptt_layer {
+  int slots, slot_len, count, head;
+  float *history;
+  float *weight_grad, *bias_grad;
+  float *dh, *dc, *grad;
+};
+
+// Gate rows per hidden unit: one weight row (and bias) per gate per unit.
+static int nn_recurrent_gates(uint8_t layer_type)
+{
+  return layer_type == LAYER_TYPE_LSTM ? 4 : layer_type == LAYER_TYPE_GRU ? 3 : 1;
+}
+
+static int nn_recurrent_cache_len(uint8_t layer_type, int hidden)
+{
+  return (layer_type == LAYER_TYPE_LSTM ? 7 : layer_type == LAYER_TYPE_GRU ? 5 : 2) * hidden;
+}
+
+static void nn_bptt_free(nn_t *nn)
+{
+  if (!nn->bptt)
+    return;
+  for (int layer = 0; layer < (int)nn->depth; layer++) {
+    struct nn_bptt_layer *b = nn->bptt[layer];
+    if (!b)
+      continue;
+    free(b->history);
+    free(b->weight_grad);
+    free(b->bias_grad);
+    free(b->dh);
+    free(b->dc);
+    free(b->grad);
+    free(b);
+  }
+  free(nn->bptt);
+  nn->bptt = NULL;
+}
+
+// Allocates an empty history for every recurrent layer. Returns false
+// (with nothing left allocated) on an allocation failure.
+static bool nn_bptt_alloc(nn_t *nn)
+{
+  nn->bptt = (struct nn_bptt_layer **)calloc(nn->depth, sizeof(*nn->bptt));
+  if (!nn->bptt)
+    return false;
+  for (int layer = 1; layer < (int)nn->depth; layer++) {
+    if (!nn_is_recurrent_layer_type(nn->layer_type[layer]))
+      continue;
+    const int hidden = (int)nn->width[layer], in = (int)nn->width[layer - 1];
+    const int rows = nn_recurrent_gates(nn->layer_type[layer]) * hidden;
+    struct nn_bptt_layer *b = (struct nn_bptt_layer *)calloc(1, sizeof(*b));
+    nn->bptt[layer] = b;
+    if (!b) {
+      nn_bptt_free(nn);
+      return false;
+    }
+    b->slots = (int)nn->bptt_depth - 1;
+    b->slot_len = in + nn_recurrent_cache_len(nn->layer_type[layer], hidden);
+    b->history = (float *)malloc((size_t)b->slots * b->slot_len * sizeof(float));
+    b->weight_grad = (float *)malloc((size_t)rows * (in + hidden) * sizeof(float));
+    b->bias_grad = (float *)malloc((size_t)rows * sizeof(float));
+    b->dh = (float *)malloc((size_t)hidden * sizeof(float));
+    b->dc = (float *)malloc((size_t)hidden * sizeof(float));
+    b->grad = (float *)malloc((size_t)rows * sizeof(float));
+    if (!b->history || !b->weight_grad || !b->bias_grad || !b->dh || !b->dc || !b->grad) {
+      nn_bptt_free(nn);
+      return false;
+    }
+  }
+  return true;
+}
+
+// Appends the timestep nn_train() just trained on to each recurrent layer's
+// history, overwriting the oldest once the ring is full.
+static void nn_bptt_record(nn_t *nn)
+{
+  for (int layer = 1; layer < (int)nn->depth; layer++) {
+    struct nn_bptt_layer *b = nn->bptt[layer];
+    if (!b)
+      continue;
+    const int hidden = (int)nn->width[layer], in = (int)nn->width[layer - 1];
+    float *slot = b->history + (size_t)b->head * b->slot_len;
+    memcpy(slot, nn->neuron[layer - 1], (size_t)in * sizeof(float));
+    if (nn->layer_type[layer] == LAYER_TYPE_RNN) {
+      memcpy(slot + in, nn->rnn_hidden_prev[layer], (size_t)hidden * sizeof(float));
+      memcpy(slot + in + hidden, nn->preact[layer], (size_t)hidden * sizeof(float));
+    } else if (nn->layer_type[layer] == LAYER_TYPE_LSTM) {
+      memcpy(slot + in, nn->lstm_cache[layer], 7 * (size_t)hidden * sizeof(float));
+    } else {
+      memcpy(slot + in, nn->gru_cache[layer], 5 * (size_t)hidden * sizeof(float));
+    }
+    b->head = (b->head + 1) % b->slots;
+    if (b->count < b->slots)
+      b->count++;
+  }
+}
+
+// Carries recurrent layer `layer`'s current-timestep gradient back through
+// its recorded history, filling b->weight_grad/b->bias_grad with the
+// earlier timesteps' contributions to its weight and bias gradients (in
+// weight_adj's sign convention, so nn_train() simply adds them in). Runs
+// after nn_train()'s backprop loop, when nn->loss[layer] holds this
+// timestep's dL/d(preact) (RNN) or dL/dh (LSTM/GRU) and lstm_gate_grad/
+// gru_gate_grad its gate gradients. Uses the current weights for every
+// step back, so it's exact when the weights haven't changed since those
+// timesteps (nn_set_batch_size() spanning the sequence), and the usual
+// online approximation otherwise.
+//
+// Going back one timestep, from s to s-1, dL/dh_{s-1} is the sum over
+// every gate row r of U[r][k] * (that row's preact gradient at s) -- with
+// the GRU candidate's rows scaled by r_s, which gates U_n's contribution
+// -- plus, for GRU, dL/dh_s * (1 - z_s) through h_s = (1-z_s) h_{s-1} +
+// z_s n_s directly. An LSTM also carries dL/dc_{s-1} = dL/dc_s * f_s
+// through its cell. Timestep s-1's own backward pass then turns those into
+// its gate gradients, exactly as for the current timestep.
+static void nn_bptt_backward(nn_t *nn, int layer)
+{
+  struct nn_bptt_layer *b = nn->bptt[layer];
+  const uint8_t type = nn->layer_type[layer];
+  const int hidden = (int)nn->width[layer], in = (int)nn->width[layer - 1];
+  const int rows = nn_recurrent_gates(type) * hidden, row_len = in + hidden;
+  const float *w = nn->weight[layer];
+  memset(b->weight_grad, 0, (size_t)rows * row_len * sizeof(float));
+  memset(b->bias_grad, 0, (size_t)rows * sizeof(float));
+
+  // The later timestep's gate gradients, dL/dh and cache, starting from the
+  // current timestep's live ones.
+  const float *grad_later = type == LAYER_TYPE_RNN ? nn->loss[layer] :
+                            type == LAYER_TYPE_LSTM ? nn->lstm_gate_grad[layer] : nn->gru_gate_grad[layer];
+  const float *dh_later = nn->loss[layer];
+  const float *cache_later = type == LAYER_TYPE_LSTM ? nn->lstm_cache[layer] :
+                             type == LAYER_TYPE_GRU ? nn->gru_cache[layer] : NULL;
+  if (type == LAYER_TYPE_LSTM) {
+    // The current timestep's total cell gradient, as nn_lstm_backward_step() computed it.
+    const float *gate_o = cache_later + 5 * hidden, *tanh_c = cache_later + 6 * hidden;
+    for (int j = 0; j < hidden; j++)
+      b->dc[j] = dh_later[j] * gate_o[j] * (1.0f - tanh_c[j] * tanh_c[j]);
+  }
+
+  for (int n = 1; n <= b->count; n++) {
+    const float *slot = b->history + (size_t)((b->head - n + b->slots) % b->slots) * b->slot_len;
+    const float *x = slot, *cache = slot + in;
+    // dL/dh at the earlier timestep. Reads dh_later[k] before overwriting
+    // b->dh[k], so it's safe when dh_later is b->dh itself.
+    const float *r_later = type == LAYER_TYPE_GRU ? cache_later + 1 * hidden : NULL;
+    const float *z_later = type == LAYER_TYPE_GRU ? cache_later + 2 * hidden : NULL;
+    for (int k = 0; k < hidden; k++) {
+      float sum = 0.0f;
+      for (int r = 0; r < rows; r++) {
+        float g = grad_later[r];
+        if (type == LAYER_TYPE_GRU && r >= 2 * hidden)
+          g *= r_later[r - 2 * hidden];
+        sum += w[(size_t)r * row_len + in + k] * g;
+      }
+      if (type == LAYER_TYPE_GRU)
+        sum += dh_later[k] * (1.0f - z_later[k]);
+      b->dh[k] = sum;
+    }
+    // That timestep's own gate gradients (grad_later is fully read above,
+    // so b->grad can be overwritten even when it is grad_later).
+    const float *h_prev;
+    const float *gate_r = NULL;
+    if (type == LAYER_TYPE_RNN) {
+      const float *preact = cache + hidden;
+      for (int j = 0; j < hidden; j++)
+        b->grad[j] = b->dh[j] * activation_function[nn->activation[layer]](preact[j], true);
+      h_prev = cache;
+    } else if (type == LAYER_TYPE_LSTM) {
+      const float *gate_f_later = cache_later + 3 * hidden;
+      for (int j = 0; j < hidden; j++)
+        b->dc[j] *= gate_f_later[j];
+      nn_lstm_backward_step(hidden, cache, b->dh, b->dc, b->grad, b->dc);
+      h_prev = cache + 1 * hidden;
+    } else {
+      nn_gru_backward_step(hidden, cache, b->dh, b->grad);
+      h_prev = cache;
+      gate_r = cache + 1 * hidden;
+    }
+    // Its contribution to the weight and bias gradients: the same outer
+    // products nn_train() forms for the current timestep, against that
+    // timestep's input and previous hidden state.
+    for (int r = 0; r < rows; r++) {
+      const float g = b->grad[r];
+      float *wrow = b->weight_grad + (size_t)r * row_len;
+      b->bias_grad[r] += g;
+      for (int k = 0; k < in; k++)
+        wrow[k] += g * x[k];
+      const float recur = (gate_r && r >= 2 * hidden) ? g * gate_r[r - 2 * hidden] : g;
+      for (int k = 0; k < hidden; k++)
+        wrow[in + k] += recur * h_prev[k];
+    }
+    grad_later = b->grad;
+    dh_later = b->dh;
+    cache_later = cache;
+  }
+}
+
+// The bias gradient nn_train() should apply for layer `layer`: `grad`, the
+// current timestep's, or -- for a recurrent layer under nn_set_bptt_depth()
+// -- that plus nn_bptt_backward()'s earlier-timestep total, so the
+// optimizer sees one combined gradient.
+static const float *nn_bptt_bias_grad(nn_t *nn, int layer, const float *grad, int total)
+{
+  struct nn_bptt_layer *b = nn->bptt ? nn->bptt[layer] : NULL;
+  if (!b)
+    return grad;
+  for (int idx = 0; idx < total; idx++)
+    b->bias_grad[idx] += grad[idx];
+  return b->bias_grad;
 }
 
 // `training` selects DROPOUT layer behavior: true (only from nn_train())
@@ -1252,6 +1495,8 @@ nn_t *nn_init(void)
   nn->batch_count = 0;
   nn->weight_grad_sum = NULL;
   nn->bias_grad_sum = NULL;
+  nn->bptt_depth = 1;
+  nn->bptt = NULL;
   nn->activation_buffer = NULL;
   nn->immutable = false;
   return nn;
@@ -1407,6 +1652,7 @@ void nn_free(nn_t *nn)
     free(nn->gru_gate_grad);
   }
   nn_batch_free(nn);
+  nn_bptt_free(nn);
   free(nn->activation_buffer);
   free(nn);
 }
@@ -1471,8 +1717,10 @@ nn_error_t nn_add_layer(nn_t *nn, layer_type_t layer_type, int width, int activa
   }
 
   // The mini-batch sums are shaped to the old layer list (see batch_size's
-  // comment in nn.h); drop them, and nn_train() reallocates to match.
+  // comment in nn.h); drop them, and nn_train() reallocates to match. The
+  // same goes for any backpropagation-through-time history.
   nn_batch_free(nn);
+  nn_bptt_free(nn);
   // Increase depth by one
   nn->depth++;
   nn->layer_type = (uint8_t *)realloc(nn->layer_type, nn->depth * sizeof(*nn->layer_type));
@@ -1818,6 +2066,10 @@ float nn_train(nn_t *nn, float *inputs, float *targets, float rate)
     fprintf(stderr, "nn_train: out of memory allocating mini-batch gradient sums\n");
     return NAN;
   }
+  if (nn->bptt_depth > 1 && !nn->bptt && nn_has_recurrent_layer(nn) && !nn_bptt_alloc(nn)) {
+    fprintf(stderr, "nn_train: out of memory allocating backpropagation-through-time history\n");
+    return NAN;
+  }
   nn->neuron[0] = inputs;
   // training=true: any DROPOUT layer actually drops/scales units here (see
   // forward_propagation()).
@@ -2088,6 +2340,14 @@ float nn_train(nn_t *nn, float *inputs, float *targets, float rate)
       }
     }
   }
+  // Backpropagation through time, under nn_set_bptt_depth(): each
+  // recurrent layer's earlier-timestep gradient contributions, added to
+  // its bias and weight gradients below.
+  if (nn->bptt) {
+    for (i = 1; i < (int)nn->depth; i++)
+      if (nn->bptt[i])
+        nn_bptt_backward(nn, i);
+  }
   // Adam's step counter: one increment per weight update, shared across
   // every layer's update within it (see its comment in nn.h) -- here, per
   // nn_train() call, unless mini-batching, where nn_batch_apply() bumps it
@@ -2116,15 +2376,15 @@ float nn_train(nn_t *nn, float *inputs, float *targets, float rate)
       // 4*hidden biases (one per gate per hidden unit); the gradient for
       // each comes from lstm_gate_grad[i], not loss[i] (which is repurposed
       // as scratch space for this layer type -- see the backprop loop above).
-      nn_param_update(nn, i, true, nn->lstm_gate_grad[i], 4 * (int)nn->width[i], rate);
+      nn_param_update(nn, i, true, nn_bptt_bias_grad(nn, i, nn->lstm_gate_grad[i], 4 * (int)nn->width[i]), 4 * (int)nn->width[i], rate);
     } else if (nn->layer_type[i] == LAYER_TYPE_GRU) {
       // 3*hidden biases (one per gate per hidden unit); the gradient for
       // each comes from gru_gate_grad[i], not loss[i] (which is repurposed
       // as scratch space for this layer type -- see the backprop loop above).
-      nn_param_update(nn, i, true, nn->gru_gate_grad[i], 3 * (int)nn->width[i], rate);
+      nn_param_update(nn, i, true, nn_bptt_bias_grad(nn, i, nn->gru_gate_grad[i], 3 * (int)nn->width[i]), 3 * (int)nn->width[i], rate);
     } else {
-      // FC / output layers
-      nn_param_update(nn, i, true, nn->loss[i], (int)nn->width[i], rate);
+      // FC / output / RNN layers
+      nn_param_update(nn, i, true, nn_bptt_bias_grad(nn, i, nn->loss[i], (int)nn->width[i]), (int)nn->width[i], rate);
     }
   }
   // Calculate the weight adjustments. Note that their update is delayed until
@@ -2247,6 +2507,17 @@ float nn_train(nn_t *nn, float *inputs, float *targets, float rate)
           nn->weight_adj[i][j * row_len + k] = nn->loss[i][j] * nn->neuron[i - 1][k];
     }
   }
+  // Add each recurrent layer's earlier-timestep weight gradients (see
+  // nn_bptt_backward()) to this timestep's.
+  if (nn->bptt) {
+    for (i = 1; i < (int)nn->depth; i++) {
+      if (!nn->bptt[i])
+        continue;
+      const int total = nn_recurrent_gates(nn->layer_type[i]) * (int)nn->width[i] * ((int)nn->width[i - 1] + (int)nn->width[i]);
+      for (k = 0; k < total; k++)
+        nn->weight_adj[i][k] += nn->bptt[i]->weight_grad[k];
+    }
+  }
   // Apply weight adjustments (optimizer step -- SGD/MOMENTUM/ADAM, see
   // nn_optimizer_apply()). Once weight_adj is filled, this pass is
   // identical mechanically regardless of which layer type produced it --
@@ -2288,6 +2559,9 @@ float nn_train(nn_t *nn, float *inputs, float *targets, float rate)
       nn_param_update(nn, i, false, nn->weight_adj[i], total, rate);
     }
   }
+  // This timestep becomes history for the next nn_train() call.
+  if (nn->bptt)
+    nn_bptt_record(nn);
   // A full mini-batch: apply its mean gradient as one update.
   if (nn->batch_size > 1 && ++nn->batch_count >= nn->batch_size)
     nn_batch_apply(nn, rate);
@@ -2319,6 +2593,9 @@ void nn_reset_state(nn_t *nn)
       memset(nn->neuron[layer], 0, (size_t)nn->width[layer] * sizeof(float));
     if (nn->layer_type[layer] == LAYER_TYPE_LSTM)
       memset(nn->lstm_cell[layer], 0, (size_t)nn->width[layer] * sizeof(float));
+    // A new sequence has no earlier timesteps to backpropagate through.
+    if (nn->bptt && nn->bptt[layer])
+      nn->bptt[layer]->count = 0;
     // Also invalidates any DROPOUT layer's held mask (see
     // dropout_mask_valid's comment in nn.h) -- this call is already the
     // "a new, independent sequence starts here" signal for RNN/GRU/LSTM
@@ -2381,6 +2658,18 @@ nn_error_t nn_train_flush(nn_t *nn, float rate)
   if (!nn)
     return NN_ERROR_INVALID_ARGUMENT;
   nn_batch_apply(nn, rate);
+  return NN_ERROR_NONE;
+}
+
+// See the comment on this in nn.h.
+nn_error_t nn_set_bptt_depth(nn_t *nn, int depth)
+{
+  if (!nn || depth < 1)
+    return NN_ERROR_INVALID_ARGUMENT;
+  if (nn->immutable)
+    return NN_ERROR_READ_ONLY_MODEL;
+  nn_bptt_free(nn);
+  nn->bptt_depth = (uint32_t)depth;
   return NN_ERROR_NONE;
 }
 
@@ -3149,6 +3438,8 @@ static nn_t *nn_load_model_inplace_impl(const uint8_t *data, size_t size, bool c
   nn->batch_count = 0;
   nn->weight_grad_sum = NULL;
   nn->bias_grad_sum = NULL;
+  nn->bptt_depth = 1;
+  nn->bptt = NULL;
   nn->activation_buffer = NULL;
 
   // Allocate every top-level array up front, all sized to `depth` and
@@ -3766,8 +4057,10 @@ nn_error_t nn_remove_neuron(nn_t *nn, int layer, int neuron_index)
     // caller's (read-only) buffer for a model loaded with nn_load_model_inplace().
     return NN_ERROR_READ_ONLY_MODEL;
   }
-  // Any partial mini-batch is shaped to the layers being resized; drop it.
+  // Any partial mini-batch or BPTT history is shaped to the layers being
+  // resized; drop it.
   nn_batch_free(nn);
+  nn_bptt_free(nn);
   // A CNN/POOL layer's width is derived entirely from its cnn_t/pool_t
   // config (spatial dims x channels), not a flat list of independent
   // neurons, and its weight array (if any) isn't neuron-indexed -- there is
@@ -4167,8 +4460,10 @@ nn_error_t nn_quantize(nn_t *nn)
     // nn_load_model_inplace().
     return NN_ERROR_READ_ONLY_MODEL;
   }
-  // A quantized model can't train, so a partial mini-batch has nowhere to go.
+  // A quantized model can't train, so a partial mini-batch or BPTT history
+  // has nowhere to go.
   nn_batch_free(nn);
+  nn_bptt_free(nn);
   const int depth = (int)nn->depth;
   // Free the float-mode weight_scale/bias_scale placeholders (allocated by
   // nn_add_layer) before replacing them with the real quantized-mode arrays

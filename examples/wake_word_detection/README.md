@@ -2,13 +2,13 @@
   <img src="figures/banner.svg" alt="Wake Word Detection: listening for one spoken word in a second of audio, with log-mel features and a small CNN." width="100%">
 </p>
 
-> **Abstract.** A voice-controlled device has to notice when it's being addressed without streaming its microphone anywhere or keeping a power-hungry speech recognizer awake. This example builds that always-on listener: it turns each second of 16 kHz audio into 49 frames of 20 log-mel energies, normalized per clip, and a 14,818-parameter convolutional network (CNN) reads the whole second as a 49 × 20 image and decides whether it was the wake word, "marvin". It trains and tests on real recordings from Google's Speech Commands dataset, split by speaker with the dataset's own lists, so every test clip is a voice the network never heard. Over five training runs, with the decision threshold set on validation data for at most 1% false accepts, it missed 7.2–8.2% of 195 test "marvin" clips and was falsely triggered by 0.8–1.1% of 10,853 other clips. A GRU on the same data, the recurrent model this example used before, misses 8–17% while triggering on 4–13% of other clips. Quantized to int8 the CNN takes 21 KB of flash and about 78 KiB of RAM, against the GRU's 2 KiB.
+> **Abstract.** A voice-controlled device has to notice when it's being addressed without streaming its microphone anywhere or keeping a power-hungry speech recognizer awake. This example builds that always-on listener: it turns each second of 16 kHz audio into 49 frames of 20 log-mel energies, normalized per clip, and a 14,818-parameter convolutional network (CNN) reads the whole second as a 49 × 20 image and decides whether it was the wake word, "marvin". It trains and tests on real recordings from Google's Speech Commands dataset, split by speaker with the dataset's own lists, so every test clip is a voice the network never heard. Over five training runs, with the decision threshold set on validation data for at most 1% false accepts, it missed 7.2–8.2% of 195 test "marvin" clips and was falsely triggered by 0.8–1.1% of 10,853 other clips. A 5,121-parameter GRU that reads the clip one frame at a time, trained with backpropagation through all 49 frames, ties the CNN at the default threshold (5.1% missed, 2.8% false accepts, medians) but misses 10–17% at the 1% false-accept point. Quantized to int8 the CNN takes 21 KB of flash and about 78 KiB of RAM, against the GRU's 2 KiB.
 
 | | |
 |---|---|
 | **Task** | Binary classification of a 1-second audio clip: the wake word "marvin", or anything else |
 | **Data** | Google Speech Commands v0.02 (CC BY 4.0), downloaded by the Makefile, split by speaker: training on 1,710 "marvin" clips (plus time-shifted copies) and 9,274 other-word and background-noise clips; testing on 195 "marvin" and 10,853 others from unseen speakers |
-| **Model** | 49 × 20 log-mel image → 3 × (3 × 3 conv + 2 × 2 max pool) → softmax 2; 14,818 parameters. Baseline: GRU 32 → sigmoid, 5,121 parameters |
+| **Model** | 49 × 20 log-mel image → 3 × (3 × 3 conv + 2 × 2 max pool) → softmax 2; 14,818 parameters. Baseline: GRU 32 → sigmoid, 5,121 parameters, backpropagated through all 49 frames |
 | **Hardware** | An always-on microcontroller with a MEMS microphone, in front of a larger system it wakes; 21 KB of flash and ~78 KiB of RAM for the int8 CNN |
 | **Result** | At a threshold set on validation: 7.2–8.2% false rejects at 0.8–1.1% false accepts (5 runs). At 0.5: 4.1–5.6% false rejects, 1.4–3.8% false accepts |
 
@@ -92,7 +92,7 @@ The CSV row `prepare_data.c` writes is frame after frame, which is exactly a 49 
 
 ### 4.3 `train_gru.c`: the recurrent baseline
 
-The baseline reads the same features one 20-value frame per call into a 32-unit GRU [2], whose hidden state carries what it has heard across the clip, and a sigmoid output gives the wake-word probability after the last frame. It has 5,121 parameters and needs far less memory and arithmetic than the CNN (section 6). It is trained the way `examples/gesture_recognition` trains its RNN: every frame of a clip against the clip's label, with plain SGD at 0.03, multiplied by 0.97 each epoch.
+The baseline reads the same features one 20-value frame per call into a 32-unit GRU [2], whose hidden state carries what it has heard across the clip, and a sigmoid output gives the wake-word probability after the last frame. It has 5,121 parameters and needs far less memory and arithmetic than the CNN (section 6). It is trained the way `examples/gesture_recognition` trains its RNN, every frame of a clip against the clip's label, with plain SGD at 0.005, multiplied by 0.97 each epoch. Each frame's error is backpropagated through every earlier frame of its clip (`nn_set_bptt_depth(nn, 49)`), so the GRU learns directly to carry evidence from the first syllable to the end of the word. With the library's default of one frame, five runs missed 8–17% of test wake words at threshold 0.5 while triggering on 4–13% of other clips; through all 49 frames, that fell to 5.1% and 2.8% (medians), for training that takes minutes instead of seconds.
 
 ### 4.4 Training and testing
 
@@ -107,21 +107,21 @@ Five runs of each trainer, each tested on the same 11,048 held-out clips from sp
 ### 5.1 At a threshold of 0.5
 
 <p align="center">
-  <img src="figures/runs.svg" alt="Dot plot of five CNN and five GRU runs at threshold 0.5 on 11,048 test clips. False-reject rate: CNN 4.1 to 5.6 percent, median 4.6; GRU 8.2 to 16.9 percent, median 11.8. False-accept rate: CNN 1.4 to 3.8 percent, median 2.8; GRU 4.3 to 13.0 percent, median 9.4." width="760">
+  <img src="figures/runs.svg" alt="Dot plot of five CNN and five GRU runs at threshold 0.5 on 11,048 test clips. False-reject rate: CNN 4.1 to 5.6 percent, median 4.6; GRU 4.6 to 8.2 percent, median 5.1. False-accept rate: CNN 1.4 to 3.8 percent, median 2.8; GRU 1.5 to 3.4 percent, median 2.8." width="760">
 </p>
 <p align="center"><sub><b>Figure 4.</b> Five training runs of each network at the default threshold. Each dot is one run; the bar is the median.</sub></p>
 
 | | CNN (14,818 parameters) | GRU (5,121 parameters) |
 |---|---|---|
-| False-reject rate (missed "marvin"), median (range) | **4.6%** (4.1–5.6) | 11.8% (8.2–16.9) |
-| False-accept rate (other audio taken for it), median (range) | **2.8%** (1.4–3.8) | 9.4% (4.3–13.0) |
+| False-reject rate (missed "marvin"), median (range) | **4.6%** (4.1–5.6) | 5.1% (4.6–8.2) |
+| False-accept rate (other audio taken for it), median (range) | 2.8% (1.4–3.8) | 2.8% (1.5–3.4) |
 
-The CNN makes less than half the GRU's mistakes of either kind, and its runs land much closer together. Part of the GRU's handicap is the library's: its recurrent layers train with backpropagation through only one timestep (see `LAYER_TYPE_GRU` in `nn.h`), so the GRU can only learn to carry evidence across a clip's 49 frames indirectly. The CNN sees all of them at once.
+At the default threshold the two are close: the same false-accept rate, and the CNN misses slightly fewer wake words, with a narrower spread. The GRU gets there with a third of the parameters and 2 KiB of RAM against the CNN's 78 KiB (section 6). It needs backpropagation through the whole clip to do it; trained on one frame at a time, the library's default, the same GRU missed 11.8% and false-triggered on 9.4% (medians of five runs).
 
 ### 5.2 Choosing the threshold
 
 <p align="center">
-  <img src="figures/tradeoff.svg" alt="False-reject rate against false-accept rate, on a log scale, as the threshold moves from 0.05 to 0.95, for one CNN run and one GRU run. The CNN curve runs from 1.5 percent missed at 11 percent false accepts to 17 percent missed at 0.14 percent; the GRU curve sits far above and to the right of it, from 4 percent missed at 19 percent false accepts to 24 percent missed at 1.8 percent. Five black diamonds mark the five CNN runs at their validation-chosen thresholds, clustered at 7 to 8 percent missed and 0.8 to 1.1 percent false accepts." width="760">
+  <img src="figures/tradeoff.svg" alt="False-reject rate against false-accept rate, on a log scale, as the threshold moves from 0.05 to 0.95, for one CNN run and one GRU run. The CNN curve runs from 1.5 percent missed at 11 percent false accepts to 17 percent missed at 0.14 percent; the GRU curve runs close to it above 2 percent false accepts and rises above it below 1 percent, from 0.5 percent missed at 17 percent false accepts to 20 percent missed at 0.37 percent. Five black diamonds mark the five CNN runs at their validation-chosen thresholds, clustered at 7 to 8 percent missed and 0.8 to 1.1 percent false accepts." width="760">
 </p>
 <p align="center"><sub><b>Figure 5.</b> The trade-off every wake-word detector makes. Raising the threshold moves each curve up and to the left: fewer false accepts, more missed wake words. The open circles mark 0.5; the diamonds are the five CNN runs at thresholds chosen on validation data.</sub></p>
 
@@ -135,7 +135,7 @@ The threshold decides where on that curve a product sits, and the right point de
 | 4 | 0.70 | 7.2% | 1.08% |
 | 5 | 0.85 | 7.2% | 0.99% |
 
-All five land within a point of each other: **about 8% of wake words missed at 1% false accepts**, on voices the network never heard. The thresholds themselves vary from run to run (0.65–0.85), which is why each model needs its own, set on validation rather than fixed in code. Only one of the five GRU runs gets down to 1% false accepts on validation at any threshold up to 0.95, and at that threshold it misses 45% of the test wake words.
+All five land within a point of each other: **about 8% of wake words missed at 1% false accepts**, on voices the network never heard. The thresholds themselves vary from run to run (0.65–0.85), which is why each model needs its own, set on validation rather than fixed in code. The GRU holds up less well at this operating point. Four of its five runs reach 1% false accepts on validation (one doesn't at any threshold up to 0.95), and at their thresholds (0.85–0.95) they miss 10.3–16.9% of the test wake words, median 13.4%, against the CNN's 7.7%.
 
 `predict` shows the same decision on single files. With run 4's model, a "marvin" clip scores 0.999 and a "house" clip from the same speaker 0.001.
 
@@ -150,7 +150,7 @@ On the device, `audio_features.[ch]` and `../../fft.[ch]` run against the microp
 | **Flash**, int8, `export --inplace` | **21,300 bytes** | 5,572 bytes |
 | **RAM**, model loaded with `nn_load_model_inplace()` | **~78 KiB** | ~1.7 KiB |
 | **Compute** per one-second window | ~1.8 million multiply-adds | ~250,000 multiply-adds, over 49 calls |
-| Accuracy cost of int8 (run 4, threshold 0.5) | none: 4.1% / 2.09% → 4.1% / 2.03% | none: 16.9% / 4.27% → 16.9% / 4.04% |
+| Accuracy cost of int8 (CNN run 4, GRU run 1; threshold 0.5) | none: 4.1% / 2.09% → 4.1% / 2.03% | none: 5.6% / 2.40% → 5.6% / 2.40% |
 
 Flash and RAM were measured on the quantized, exported models. To build one:
 
@@ -190,7 +190,7 @@ The first `make` downloads and extracts the ~2.4 GB Speech Commands archive, bui
 | Command | What it does |
 |---|---|
 | `./train_cnn wake_word_cnn.txt` | trains the CNN (about 13 minutes for 11 epochs, single-threaded; resumes if the file exists) |
-| `./train_gru wake_word_gru.txt` | trains the GRU baseline; use a different model file than the CNN's |
+| `./train_gru wake_word_gru.txt` | trains the GRU baseline (about 3–4 minutes for 8–12 epochs); use a different model file than the CNN's |
 | `./test wake_word_cnn.txt validation.csv` | false-reject and false-accept rates across thresholds on the validation set: choose the threshold here |
 | `./test wake_word_cnn.txt test.csv 0.7` | both rates on the test set at the chosen threshold (either model; the defaults are `test.csv` and 0.5) |
 | `./predict wake_word_cnn.txt dataset/marvin/<file>.wav` | the wake-word probability of one WAV file, the way an application would get it |

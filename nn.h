@@ -86,8 +86,8 @@ typedef enum {
   // (sigmoid for input/forget/output, tanh for the cell candidate) rather
   // than a user-selected one -- nn->activation[layer] is stored for this
   // layer (and round-tripped through save/load) but not used. Also like
-  // RNN, the recurrent connection is trained as truncated BPTT with a
-  // truncation depth of 1 (see LAYER_TYPE_RNN's comment for the rationale);
+  // RNN, the recurrent connection is trained as truncated BPTT, depth 1 by
+  // default (see LAYER_TYPE_RNN's comment, and nn_set_bptt_depth());
   // an LSTM's output is not a scalar function of one preact per neuron the
   // way every other layer type's is, though, so its backward pass
   // (nn_lstm_backward() in nn.c) replaces the generic per-neuron
@@ -101,7 +101,7 @@ typedef enum {
   LAYER_TYPE_LSTM,
   // Gated Recurrent Unit Layer. Like LAYER_TYPE_LSTM (one timestep per call,
   // `config` unused, width set directly, nn_reset_state() between
-  // sequences, truncated BPTT depth 1, fixed gate nonlinearities not
+  // sequences, truncated BPTT (depth 1 by default), fixed gate nonlinearities not
   // user-selected), but a cheaper middle point between LAYER_TYPE_RNN and
   // LAYER_TYPE_LSTM: only THREE gates (reset, update, candidate) instead of
   // four, and only ONE persistent state -- nn->neuron[layer], the hidden
@@ -127,12 +127,14 @@ typedef enum {
   // one), so a caller runs a whole sequence by calling once per timestep.
   // Call nn_reset_state() before starting a new, independent sequence --
   // otherwise the previous sequence's final hidden state leaks into the
-  // next one. The recurrent connection is trained as truncated BPTT with a
-  // truncation depth of 1: the previous hidden state is treated as a
-  // constant for gradient purposes (like any earlier layer's activations),
-  // and no gradient flows further back through time than one step. This
-  // keeps memory use flat regardless of sequence length, matching this
-  // library's embedded-systems, one-sample-at-a-time training model. See
+  // next one. By default the recurrent connection is trained as truncated
+  // BPTT with a truncation depth of 1: the previous hidden state is treated
+  // as a constant for gradient purposes (like any earlier layer's
+  // activations), and no gradient flows further back through time than one
+  // step. This keeps memory use flat regardless of sequence length,
+  // matching this library's embedded-systems, one-sample-at-a-time training
+  // model. nn_set_bptt_depth() backpropagates through more timesteps, at
+  // the cost of keeping that many timesteps' history per layer. See
   // the comment above forward_propagation()'s LAYER_TYPE_RNN case in nn.c
   // for the weight layout and full rationale.
   LAYER_TYPE_RNN,
@@ -385,6 +387,18 @@ typedef struct {
   uint32_t batch_count;
   float **weight_grad_sum;
   float **bias_grad_sum;
+  // Backpropagation through time, set by nn_set_bptt_depth(). bptt_depth 1
+  // (nn_init()'s default) trains each RNN/LSTM/GRU layer on its current
+  // timestep only, exactly as this library always has, and never allocates
+  // bptt. Above 1, each recurrent layer keeps the inputs and cached gate
+  // values of its last bptt_depth-1 timesteps (bptt[layer], private to
+  // nn.c), and nn_train() carries the current timestep's gradient back
+  // through them -- through the hidden state, and an LSTM's cell state --
+  // into that layer's weights and biases. Allocated on the first nn_train()
+  // call that needs it; emptied by nn_reset_state(); freed by anything that
+  // reshapes the model, like the mini-batch sums above. Never saved.
+  uint32_t bptt_depth;
+  struct nn_bptt_layer **bptt;
   // Non-NULL only for a model returned by nn_load_model_inplace(): the two
   // activation buffers every non-recurrent layer's neuron[]/preact[] point
   // into, alternating layer by layer, instead of each layer owning its own
@@ -527,5 +541,22 @@ nn_error_t nn_set_batch_size(nn_t *nn, int batch_size);
 // held over (or lost). A no-op when nothing is pending, including whenever
 // batch_size is 1.
 nn_error_t nn_train_flush(nn_t *nn, float rate);
+// Sets how many timesteps (including the current one) each nn_train() call
+// backpropagates through, for every RNN/LSTM/GRU layer (see nn_t's
+// bptt_depth comment). 1, the default, is the original truncated BPTT:
+// each timestep's error trains the recurrent weights only on that
+// timestep's own inputs, so nothing teaches a layer to carry information
+// forward on purpose. A depth of at least the sequence length, together
+// with nn_set_batch_size() set to the sequence length (so the weights stay
+// fixed across it), gives exact full BPTT over each sequence. Call
+// nn_reset_state() between sequences as usual; it also clears the history.
+// Gradient through time stops at the recurrent layer's own input: a layer
+// below a recurrent one still learns only from the current timestep (exact
+// when the recurrent layer reads the network's input directly). Memory per
+// recurrent layer of width h and input width n: (depth - 1) * (n + 2h)
+// floats for RNN, (n + 7h) for LSTM, (n + 5h) for GRU, plus one gradient
+// buffer the size of its weights. Returns NN_ERROR_INVALID_ARGUMENT for
+// depth < 1, and NN_ERROR_READ_ONLY_MODEL on an immutable model.
+nn_error_t nn_set_bptt_depth(nn_t *nn, int depth);
 
 #endif /* NN_H */

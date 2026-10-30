@@ -30,7 +30,7 @@ SAMPLE_RATE, FRAME_LEN, HOP_LEN, NUM_MEL_BINS = 16000, 512, 320, 20
 # test on test.csv (195 "marvin", 10,853 other clips, speakers unseen in
 # training) at the default 0.5 threshold: false-reject %, false-accept %.
 RUNS = {"CNN": [(4.1, 2.79), (5.6, 1.43), (5.6, 2.79), (4.1, 2.09), (4.6, 3.79)],
-        "GRU": [(16.9, 4.27), (8.2, 12.97), (11.8, 5.94), (11.8, 9.36), (11.8, 11.84)]}
+        "GRU": [(5.6, 2.40), (4.6, 2.79), (5.1, 2.78), (8.2, 1.52), (4.6, 3.43)]}
 
 # test's threshold table on test.csv for one representative run of each
 # (threshold, false-reject %, false-accept %).
@@ -39,10 +39,10 @@ TRADEOFF = {
             (0.30, 2.6, 3.57), (0.35, 3.1, 3.05), (0.40, 3.6, 2.70), (0.45, 3.6, 2.43), (0.50, 4.1, 2.09),
             (0.55, 4.6, 1.78), (0.60, 5.6, 1.50), (0.65, 6.2, 1.32), (0.70, 7.2, 1.08), (0.75, 8.7, 0.92),
             (0.80, 9.7, 0.67), (0.85, 10.3, 0.49), (0.90, 13.3, 0.39), (0.95, 16.9, 0.14)],
-    "GRU": [(0.05, 4.1, 18.91), (0.10, 5.1, 14.36), (0.15, 6.2, 12.16), (0.20, 8.7, 10.61), (0.25, 9.7, 9.42),
-            (0.30, 10.3, 8.51), (0.35, 10.8, 7.68), (0.40, 11.3, 6.96), (0.45, 11.8, 6.49), (0.50, 11.8, 5.94),
-            (0.55, 11.8, 5.51), (0.60, 12.3, 5.10), (0.65, 12.8, 4.67), (0.70, 12.8, 4.15), (0.75, 14.4, 3.70),
-            (0.80, 15.4, 3.41), (0.85, 17.4, 3.07), (0.90, 19.5, 2.48), (0.95, 24.1, 1.79)],
+    "GRU": [(0.05, 0.5, 17.09), (0.10, 1.5, 8.60), (0.15, 2.1, 6.46), (0.20, 3.6, 5.32), (0.25, 3.6, 4.46),
+            (0.30, 4.1, 3.81), (0.35, 4.6, 3.27), (0.40, 5.1, 2.90), (0.45, 5.6, 2.61), (0.50, 5.6, 2.40),
+            (0.55, 6.2, 2.13), (0.60, 6.7, 1.85), (0.65, 6.7, 1.63), (0.70, 8.2, 1.40), (0.75, 8.2, 1.23),
+            (0.80, 9.7, 1.07), (0.85, 11.8, 0.87), (0.90, 16.9, 0.66), (0.95, 20.5, 0.37)],
 }
 # Each CNN run's threshold chosen on validation.csv (the lowest giving at
 # most 1% false accepts there), and what it scored on test.csv.
@@ -141,11 +141,11 @@ def runs_figure():
             ax.text(x + 0.26, med, f"{med:.1f}%", va="center", fontsize=9, color=INK_2)
     ax.set_xticks([0.5, 2.9], ["false-reject rate\n(missed “marvin”)", "false-accept rate\n(other audio taken for it)"])
     ax.set_xlim(-0.5, 4.0)
-    ax.set_ylim(0, 20)
-    ax.set_yticks([0, 5, 10, 15, 20])
+    ax.set_ylim(0, 10)
+    ax.set_yticks([0, 2, 4, 6, 8, 10])
     ax.yaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
     ax.legend(loc="upper right", frameon=False)
-    ax.text(-0.45, 19, "5 runs each · threshold 0.5 · 11,048 test clips", fontsize=8.5, color=MUTED, va="top")
+    ax.text(-0.45, 9.6, "5 runs each · threshold 0.5 · 11,048 test clips", fontsize=8.5, color=MUTED, va="top")
     style.save(fig, os.path.join(OUT, "runs.svg"))
 
 
