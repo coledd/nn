@@ -69,6 +69,17 @@ STREAM = {
         (0.90, 10.3, 35.86), (0.95, 14.9, 11.48), (0.97, 17.4, 7.07), (0.98, 20.5, 4.24), (0.99, 26.2, 1.06),
         (0.995, 35.9, 0.53)],
 }
+# The same CNN run 4 confirmed by GRU run 4 (both must score at or above the
+# threshold), waking only after three consecutive windows do (stream's
+# "cnn+gru, 3 consecutive windows" table; the 0.995 row, at zero false
+# wake-ups, can't be drawn on a log scale).
+STREAM["CNN + GRU, 3 windows in a row"] = [
+    (0.05, 3.1, 207.20), (0.10, 5.6, 154.21), (0.20, 7.7, 110.23), (0.30, 7.7, 86.38), (0.40, 7.7, 48.75),
+    (0.50, 8.2, 17.13), (0.60, 9.7, 6.36), (0.70, 10.8, 4.24), (0.80, 11.8, 2.65), (0.85, 11.8, 1.77),
+    (0.90, 14.4, 1.24), (0.95, 20.0, 0.71), (0.97, 24.1, 0.35), (0.98, 27.2, 0.18)]
+# All five CNN + GRU pairs, three windows in a row, at the threshold their
+# validation stream picked for at most 1 false wake-up per hour.
+STREAM_CONFIRMED = [(0.53, 27.7), (0.53, 21.0), (0.35, 22.6), (0.18, 27.2), (0.53, 16.9)]
 # The streaming-trained CNN runs whose validation stream reached at most 10
 # false wake-ups per hour (four of five), at that threshold on the test
 # stream: (false wake-ups per hour, missed %).
@@ -200,22 +211,24 @@ def tradeoff_figure():
 
 def stream_figure():
     fig, ax = plt.subplots(figsize=(8.6, 3.8))
-    colors = [MUTED, SERIES[0], SERIES[1]]
+    colors = [MUTED, SERIES[0], SERIES[1], SERIES[2]]
     for k, (name, rows) in enumerate(STREAM.items()):
         ax.plot([r[2] for r in rows], [r[1] for r in rows], color=colors[k], lw=2, marker="o", ms=3.5,
                 ls="--" if k == 0 else "-", label=name, zorder=3)
     ax.scatter([t[0] for t in STREAM_TUNED], [t[1] for t in STREAM_TUNED], s=60, marker="D", color=style.INK, zorder=5,
-               label="CNN with streaming windows, 4 runs, threshold\nset on validation for at most 10 false wake-ups/h")
+               label="CNN, 4 runs, threshold set on\nvalidation for at most 10 false wake-ups/h")
+    ax.scatter([t[0] for t in STREAM_CONFIRMED], [t[1] for t in STREAM_CONFIRMED], s=60, marker="s", color=style.INK,
+               zorder=5, label="CNN + GRU, 3 windows, 5 runs, threshold\nset on validation for at most 1 per hour")
     ax.set_xscale("log")
-    ax.set_xticks([1, 3, 10, 30, 100, 300, 1000], ["1", "3", "10", "30", "100", "300", "1,000"])
+    ax.set_xticks([0.2, 1, 3, 10, 30, 100, 300, 1000], ["0.2", "1", "3", "10", "30", "100", "300", "1,000"])
     ax.minorticks_off()
-    ax.set_xlim(0.4, 2500)
+    ax.set_xlim(0.12, 2500)
     ax.set_ylim(0, 40)
     ax.yaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
     ax.set_xlabel("false wake-ups per hour", fontsize=9)
     ax.set_ylabel("missed “marvin”", fontsize=9)
     ax.legend(loc="upper right", frameon=False, fontsize=8.5)
-    ax.text(0.45, 38.5, "5.7-hour test stream · 20 dB SNR · window every 100 ms", fontsize=8.5, color=MUTED, va="top")
+    ax.text(0.13, 38.5, "5.7-hour test stream · 20 dB SNR · window every 100 ms", fontsize=8.5, color=MUTED, va="top")
     style.save(fig, os.path.join(OUT, "stream.svg"))
 
 

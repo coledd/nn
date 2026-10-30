@@ -29,6 +29,15 @@
 // other trigger is a false wake-up. Every model named on the command line
 // is scored on the same stream, at thresholds from 0.05 to 0.995 (finer
 // near the top, where a detector that must rarely wake has to sit).
+//
+// Two second-stage checks are scored alongside, both from the same
+// per-window probabilities. Each model is scored three times: waking on
+// one window over the threshold, and only once two or three consecutive
+// windows (100 ms apart) are -- a spoken word keeps scoring high as the
+// window slides across it, a chance match often doesn't. And a model
+// argument of the form "a.txt+b.txt" means two models that must both
+// agree: its score for a window is the smaller of their two, which on a
+// device is the first model waking the second to check.
 
 #include <math.h>
 #include <stdio.h>
@@ -45,6 +54,7 @@
 #define STEP_MS 100        // window hop: 10 windows per second
 #define REFRACTORY_MS 1000 // no second trigger within a second of the first
 #define MAX_MODELS 16
+#define MAX_CONSECUTIVE 3 // score 1, 2 and 3 consecutive windows
 #define MAX_PATH_LEN 1024
 
 #define STEP_SAMPLES (SAMPLE_RATE * STEP_MS / 1000)
@@ -99,10 +109,11 @@ static long load_background(const char *dataset_dir, int validation, float **bed
 int main(int argc, char *argv[])
 {
   if (argc < 5 || (strcmp(argv[2], "test") != 0 && strcmp(argv[2], "validation") != 0)) {
-    printf("Usage: %s <dataset-dir> <test|validation> <snr-db> <model> [model...]\n", argv[0]);
+    printf("Usage: %s <dataset-dir> <test|validation> <snr-db> <model>[+<model>] [...]\n", argv[0]);
     printf("  Builds a continuous stream from one split's clips over that split's background noise,\n");
     printf("  mixed at <snr-db> (speech power over background power), and reports each model's detection\n");
-    printf("  rate and false wake-ups per hour across thresholds. Set SEED in the environment to vary the stream.\n");
+    printf("  rate and false wake-ups per hour across thresholds, waking on 1, 2 or 3 consecutive windows.\n");
+    printf("  a.txt+b.txt scores two models that must both agree. Set SEED in the environment to vary the stream.\n");
     return 1;
   }
   const char *dataset_dir = argv[1];
@@ -113,10 +124,18 @@ int main(int argc, char *argv[])
     fprintf(stderr, "Error: at most %d models.\n", MAX_MODELS);
     return 1;
   }
-  nn_t *models[MAX_MODELS];
+  // models[m][1] is NULL unless argument m names a second, confirming model.
+  nn_t *models[MAX_MODELS][2] = { { NULL } };
   for (int m = 0; m < num_models; m++) {
-    models[m] = nn_load_model(argv[4 + m]);
-    if (models[m] == NULL) {
+    char spec[MAX_PATH_LEN];
+    snprintf(spec, sizeof(spec), "%s", argv[4 + m]);
+    char *second = strchr(spec, '+');
+    if (second)
+      *second++ = '\0';
+    models[m][0] = nn_load_model(spec);
+    if (second)
+      models[m][1] = nn_load_model(second);
+    if (models[m][0] == NULL || (second && models[m][1] == NULL)) {
       fprintf(stderr, "Error: could not load model %s.\n", argv[4 + m]);
       return 1;
     }
@@ -209,22 +228,31 @@ int main(int argc, char *argv[])
   static float features[SEQUENCE_LEN * NUM_MEL_BINS];
   for (long w = 0; w < num_windows; w++) {
     audio_features_extract_sequence(af, stream + w * STEP_SAMPLES, CLIP_SAMPLES, HOP_LEN, features);
-    for (int m = 0; m < num_models; m++)
-      prob[(size_t)m * num_windows + w] = wake_word_probability(models[m], features);
+    for (int m = 0; m < num_models; m++) {
+      float p = wake_word_probability(models[m][0], features);
+      if (models[m][1]) {
+        float q = wake_word_probability(models[m][1], features);
+        p = q < p ? q : p;
+      }
+      prob[(size_t)m * num_windows + w] = p;
+    }
   }
 
   // Score every model at every threshold.
   int *detected = malloc((size_t)num_wake * sizeof(int));
-  for (int m = 0; m < num_models; m++) {
+  for (int scored = 0; scored < num_models * MAX_CONSECUTIVE; scored++) {
+    const int m = scored / MAX_CONSECUTIVE, consecutive = scored % MAX_CONSECUTIVE + 1;
     const float *p = prob + (size_t)m * num_windows;
-    printf("%s\n", argv[4 + m]);
+    printf("%s, %d consecutive window%s\n", argv[4 + m], consecutive, consecutive > 1 ? "s" : "");
     printf("threshold, detected %%, missed %%, false wake-ups, per hour\n");
     for (int t = 0; t < NUM_THRESHOLDS; t++) {
       const float threshold = thresholds[t];
       memset(detected, 0, (size_t)num_wake * sizeof(int));
       int false_wakeups = 0, next_wake = 0;
+      wake_word_detector_t detector;
+      wake_word_detector_init(&detector, threshold, consecutive, REFRACTORY_STEPS - 1);
       for (long w = 0; w < num_windows; w++) {
-        if (p[w] < threshold)
+        if (!wake_word_detector_step(&detector, p[w]))
           continue;
         long ws = w * STEP_SAMPLES, we = ws + CLIP_SAMPLES;
         // The wake-word clips are in stream order: skip those that ended
@@ -238,7 +266,6 @@ int main(int argc, char *argv[])
         }
         if (!overlaps_any)
           false_wakeups++;
-        w += REFRACTORY_STEPS - 1; // hold off
       }
       int hits = 0;
       for (int k = 0; k < num_wake; k++)
@@ -258,7 +285,9 @@ int main(int argc, char *argv[])
   for (int i = 0; i < num_clips; i++)
     free(clips[i]);
   free(clips);
-  for (int m = 0; m < num_models; m++)
-    nn_free(models[m]);
+  for (int m = 0; m < num_models; m++) {
+    nn_free(models[m][0]);
+    nn_free(models[m][1]);
+  }
   return 0;
 }

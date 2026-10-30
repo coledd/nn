@@ -57,4 +57,45 @@ static inline float wake_word_probability(nn_t *model, float *features)
   return -1.0f;
 }
 
+// The decision rule a listener applies to those probabilities as its
+// one-second window slides along the microphone stream (stream.c measures
+// exactly this). Feed it one probability per window, in order; it returns
+// 1 when the device should wake. It wakes only after `consecutive` windows
+// in a row reach `threshold` -- a spoken word keeps scoring high as the
+// window slides across it, a chance match often doesn't -- and then ignores
+// the next `hold_off` windows, so one utterance wakes it once. Combining
+// two models is the caller's job: pass the smaller of their probabilities,
+// so that both have to agree (the second model only needs to run once the
+// first scores at or above the threshold).
+typedef struct {
+  float threshold;
+  int consecutive; // windows in a row at or above threshold before waking (1 = wake on one)
+  int hold_off;    // windows ignored after waking
+  int run;         // internal: windows in a row at or above threshold so far
+  int ignoring;    // internal: hold-off windows still to ignore
+} wake_word_detector_t;
+
+static inline void wake_word_detector_init(wake_word_detector_t *d, float threshold, int consecutive, int hold_off)
+{
+  d->threshold = threshold;
+  d->consecutive = consecutive;
+  d->hold_off = hold_off;
+  d->run = 0;
+  d->ignoring = 0;
+}
+
+static inline int wake_word_detector_step(wake_word_detector_t *d, float probability)
+{
+  if (d->ignoring > 0) {
+    d->ignoring--;
+    return 0;
+  }
+  d->run = probability >= d->threshold ? d->run + 1 : 0;
+  if (d->run < d->consecutive)
+    return 0;
+  d->run = 0;
+  d->ignoring = d->hold_off;
+  return 1;
+}
+
 #endif /* WAKE_WORD_DATA_H */

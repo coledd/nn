@@ -2,7 +2,7 @@
   <img src="figures/banner.svg" alt="Wake Word Detection: listening for one spoken word in a second of audio, with log-mel features and a small CNN." width="100%">
 </p>
 
-> **Abstract.** A voice-controlled device has to notice when it's being addressed without streaming its microphone anywhere or keeping a power-hungry speech recognizer awake. This example builds that always-on listener: it turns each second of 16 kHz audio into 49 frames of 20 log-mel energies, normalized per clip, and a 14,818-parameter convolutional network (CNN) reads the whole second as a 49 × 20 image and decides whether it was the wake word, "marvin". It trains and tests on real recordings from Google's Speech Commands dataset, split by speaker with the dataset's own lists, so every test clip is a voice the network never heard. Over five training runs, with the decision threshold set on validation data for at most 1% false accepts, it missed 4.1–6.2% of 195 test "marvin" clips and was falsely triggered by 0.6–1.0% of 10,853 other clips. On a continuous 5.7-hour stream of the same test speech, scanned every 100 ms the way a listener runs, it caught 86–91% of the wake words at 6–8 false wake-ups per hour (four of five runs; the fifth never got down to 10 per hour on the validation stream). That took training on one-second windows cut from runs of words laid end to end; trained on whole clips alone, the same network woke falsely 17 to 55 times an hour even at its strictest threshold. A 5,121-parameter GRU that reads the clip one frame at a time, trained with backpropagation through all 49 frames, misses 6–10% at the 1% false-accept point. Quantized to int8 the CNN takes 21 KB of flash and about 78 KiB of RAM, against the GRU's 2 KiB.
+> **Abstract.** A voice-controlled device has to notice when it's being addressed without streaming its microphone anywhere or keeping a power-hungry speech recognizer awake. This example builds that always-on listener: it turns each second of 16 kHz audio into 49 frames of 20 log-mel energies, normalized per clip, and a 14,818-parameter convolutional network (CNN) reads the whole second as a 49 × 20 image and decides whether it was the wake word, "marvin". It trains and tests on real recordings from Google's Speech Commands dataset, split by speaker with the dataset's own lists, so every test clip is a voice the network never heard. Over five training runs, with the decision threshold set on validation data for at most 1% false accepts, it missed 4.1–6.2% of 195 test "marvin" clips and was falsely triggered by 0.6–1.0% of 10,853 other clips. On a continuous 5.7-hour stream of the same test speech, scanned every 100 ms the way a listener runs, it caught 86–91% of the wake words at 6–8 false wake-ups per hour (four of five runs; the fifth never got down to 10 per hour on the validation stream). That took training on one-second windows cut from runs of words laid end to end; trained on whole clips alone, the same network woke falsely 17 to 55 times an hour even at its strictest threshold. A second-stage check, waking only when the CNN and a small GRU both agree for three windows in a row, brought all five runs under 1 false wake-up per hour on that stream (0.2–0.5) while catching 72–83% of the wake words. A 5,121-parameter GRU that reads the clip one frame at a time, trained with backpropagation through all 49 frames, misses 6–10% at the 1% false-accept point. Quantized to int8 the CNN takes 21 KB of flash and about 78 KiB of RAM, against the GRU's 2 KiB.
 
 | | |
 |---|---|
@@ -10,7 +10,7 @@
 | **Data** | Google Speech Commands v0.02 (CC BY 4.0), downloaded by the Makefile, split by speaker: training on 1,710 "marvin" clips (plus time-shifted copies), 9,274 other-word and background-noise clips, and 20,520 one-second windows cut from runs of training words; testing on 195 "marvin" and 10,853 others from unseen speakers, as clips and as a continuous stream |
 | **Model** | 49 × 20 log-mel image → 3 × (3 × 3 conv + 2 × 2 max pool) → softmax 2; 14,818 parameters. Baseline: GRU 32 → sigmoid, 5,121 parameters, backpropagated through all 49 frames |
 | **Hardware** | An always-on microcontroller with a MEMS microphone, in front of a larger system it wakes; 21 KB of flash and ~78 KiB of RAM for the int8 CNN |
-| **Result** | Per clip, at a threshold set on validation: 4.1–6.2% false rejects at 0.6–1.0% false accepts (5 runs). On a 5.7-hour test stream at 20 dB SNR: 86–91% of wake words caught at 6–8 false wake-ups per hour (4 of 5 runs) |
+| **Result** | Per clip, at a threshold set on validation: 4.1–6.2% false rejects at 0.6–1.0% false accepts (5 runs). On a 5.7-hour test stream at 20 dB SNR: 86–91% of wake words caught at 6–8 false wake-ups per hour (4 of 5 runs); with a CNN + GRU check over three windows, 72–83% at 0.2–0.5 per hour (5 of 5) |
 
 ## 1. The problem
 
@@ -146,9 +146,9 @@ All five land within about two points of each other: **about 5% of wake words mi
 A clip test can't say how often a device wakes up per hour, because a device never sees clips. `stream.c` builds what it does see. It lays all 11,005 test clips (195 of them "marvin") end to end in a shuffled order, with 250–1500 ms gaps, over the test stretch of the background recordings looped underneath, 5.7 hours in all. Then it slides a one-second window along it every 100 ms, computing each window's features exactly as for a clip, normalization included. A window at or above the threshold wakes the detector, which then ignores the next second, so one utterance wakes it once. A wake-up whose window overlaps a "marvin" detects it; any other wake-up is false.
 
 <p align="center">
-  <img src="figures/stream.svg" alt="Missed wake words against false wake-ups per hour, on a log scale, on the 5.7-hour test stream at 20 dB signal-to-noise ratio, as the threshold moves from 0.05 to 0.995. The CNN trained on whole clips only, dashed, never gets below 25 false wake-ups per hour, where it misses 16 percent. The CNN trained with streaming windows reaches 3.7 per hour at 11 percent missed and 6.4 per hour at 9 percent. The GRU with streaming windows reaches lower false-wake-up rates only by missing far more, 26 percent at 1 per hour. Four black diamonds mark four CNN runs at thresholds chosen on a validation stream, at 6 to 8 false wake-ups per hour and 9 to 14 percent missed." width="760">
+  <img src="figures/stream.svg" alt="Missed wake words against false wake-ups per hour, on a log scale, on the 5.7-hour test stream at 20 dB signal-to-noise ratio, as the threshold moves from 0.05 to 0.995. The CNN trained on whole clips only, dashed, never gets below 25 false wake-ups per hour, where it misses 16 percent. The CNN trained with streaming windows reaches 3.7 per hour at 11 percent missed and 6.4 per hour at 9 percent. The GRU with streaming windows reaches lower false-wake-up rates only by missing far more, 26 percent at 1 per hour. Four black diamonds mark four CNN runs at thresholds chosen on a validation stream, at 6 to 8 false wake-ups per hour and 9 to 14 percent missed. A fourth curve, the CNN confirmed by a GRU over three windows in a row, runs close to the CNN's down to about 3 per hour and continues below it to 0.2 per hour at 27 percent missed; five black squares mark its five runs at thresholds chosen for at most 1 false wake-up per hour, at 0.2 to 0.5 per hour and 17 to 28 percent missed." width="760">
 </p>
-<p align="center"><sub><b>Figure 6.</b> The same trade-off on a stream: missed wake words against false wake-ups per hour. Each curve is one run; the diamonds are four CNN runs at thresholds chosen on a validation stream.</sub></p>
+<p align="center"><sub><b>Figure 6.</b> The same trade-off on a stream: missed wake words against false wake-ups per hour. Each curve is one run; the diamonds and squares are runs at thresholds chosen on a validation stream (section 5.4).</sub></p>
 
 The threshold is chosen the same way as for clips, but on a stream built from the validation speakers and the validation background: the lowest threshold at which that stream gives at most 10 false wake-ups per hour. Applied unchanged to the test stream, at 20 dB signal-to-noise ratio:
 
@@ -161,13 +161,31 @@ The threshold is chosen the same way as for clips, but on a stream built from th
 
 With the background at 60 dB, nearly silent between words, the CNN's four runs catch 82–91% at 6–12 false wake-ups per hour; the clip-trained CNN wakes falsely 73–203 times an hour there even at 0.995. Near-silence is the harder case for a clip-trained model, probably because per-clip normalization stretches whatever is in a quiet window, the tail of a word or a breath, to the same scale as a word.
 
-So a stream test finds what a clip test can't. The clip-trained CNN looked almost as good per clip (7.7% missed at 1% false accepts), and on a stream it was unusable: run 4, at the threshold chosen for it per clip (0.70), caught 99.5% of the wake words but woke falsely 513 times an hour. Training on stream-like windows fixed most of that, but 6–8 false wake-ups an hour is still more than a product wants (section 7).
+So a stream test finds what a clip test can't. The clip-trained CNN looked almost as good per clip (7.7% missed at 1% false accepts), and on a stream it was unusable: run 4, at the threshold chosen for it per clip (0.70), caught 99.5% of the wake words but woke falsely 513 times an hour. Training on stream-like windows fixed most of that, but 6–8 false wake-ups an hour is still more than a product wants.
+
+### 5.4 A second-stage check
+
+Two checks before waking, neither needing new training, both scored by `stream` from the same per-window probabilities:
+
+- **Several windows in a row.** The window moves 100 ms at a time, so a spoken "marvin" stays in view for several windows and keeps scoring high, while many chance matches last a single window. Waking only after two or three consecutive windows reach the threshold costs 100–200 ms of delay.
+- **A second model.** The GRU of section 4.3 confirms the CNN: the device wakes only when both score at or above the threshold on the same window. The two networks look at the audio differently, a whole image against frame by frame, and on this stream requiring both cut false wake-ups far more than it cut detections. On a device the GRU only has to run when the CNN has already fired.
+
+`wake_word_detector_step()` in `wake_word_data.h` is the rule, as firmware would run it, and `stream` scores through it. With the threshold set on the validation stream for at most 1 false wake-up per hour and applied to the test stream:
+
+| Detector, five runs each | Runs reaching the target on validation | 20 dB SNR: caught, median (range) | 20 dB SNR: false wake-ups/h, median (range) | 60 dB SNR: caught | 60 dB SNR: false wake-ups/h |
+|---|---|---|---|---|---|
+| CNN, one window (section 5.3) | 0 at either SNR | — | — | — | — |
+| CNN, 3 windows in a row | 4 at 20 dB, 5 at 60 dB | 80.5% (69.7–86.7) | 0.62 (0.35–0.71) | 83.1% | 0.35 |
+| GRU, 3 windows in a row | 3 at both | 51.3% (48.7–62.6) | 0.18 (0.18–0.53) | 52.3% | 0.18 |
+| **CNN + GRU, 3 windows in a row** | **5 at both** | **77.4% (72.3–83.1)** | **0.53 (0.18–0.53)** | **84.6%** (82.1–87.7) | **0.18** (0.18–1.77) |
+
+The combined check is the only one for which every run reached the target on validation at both noise levels. On the test stream all five stayed under 1 false wake-up per hour at 20 dB, missing about one wake word in five, and four of five at 60 dB. With a looser target of 3 per hour, it catches 85.6% (84.1–88.7) at 1.4 per hour at 20 dB, and 90.3% at 2.3 per hour at 60 dB. These rates rest on few events: 0.5 per hour over a 5.7-hour stream is three false wake-ups, so a run's rate could easily be half or double that on another stream. And validation doesn't always carry over at these counts: at 60 dB one pair's validation stream gave 0.78 per hour and its test stream 1.77.
 
 **An earlier version of this example** used the GRU alone, split the data randomly by clip, and tested on 441 clips, about half of them "marvin". It reported 85% accuracy, with false-reject and false-accept rates of 16% and 14%. A random split puts the same speakers in training and test, so that figure was optimistic; on the speaker split, that same GRU and data scored 82–84%.
 
 ## 6. Running on the device
 
-On the device, `audio_features.[ch]` and `../../fft.[ch]` run against the microphone buffer and `nn.[ch]` runs the network; `predict.c` is the same sequence of calls on a WAV file, and `wake_word_probability()` in `wake_word_data.h` runs either model on one window in a single call. A real listener slides the one-second window along the stream rather than waiting for separate clips, compares the probability against its own threshold, and holds off for a moment after waking, as `stream.c` does (section 5.3). At one window every 100 ms, the CNN costs about 18 million multiply-adds per second.
+On the device, `audio_features.[ch]` and `../../fft.[ch]` run against the microphone buffer and `nn.[ch]` runs the network; `predict.c` is the same sequence of calls on a WAV file, and `wake_word_probability()` in `wake_word_data.h` runs either model on one window in a single call. A real listener slides the one-second window along the stream rather than waiting for separate clips, compares the probability against its own threshold, and holds off for a moment after waking. `wake_word_detector_step()` in `wake_word_data.h` is that rule, with the second-stage options of section 5.4. At one window every 100 ms, the CNN costs about 18 million multiply-adds per second.
 
 | Resource | CNN | GRU |
 |---|---|---|
@@ -196,7 +214,7 @@ Both cut RAM by two-thirds or more, and both nearly double the missed wake words
 
 ## 7. Limitations
 
-- **A stream of single words, not a room.** The stream in section 5.3 is isolated words with gaps, over 43 seconds of test background looped for 5.7 hours. Real room audio is continuous conversation, television and music, with words running together, and products typically aim for well under one false wake-up per hour of it; this test can't measure that, and 6–8 per hour on single words is still far above it. More stream-like training data (real conversation as negatives) and a second check before waking the main processor are the usual next steps.
+- **A stream of single words, not a room.** The stream in section 5.3 is isolated words with gaps, over 43 seconds of test background looped for 5.7 hours. Real room audio is continuous conversation, television and music, with words running together, and products typically aim for well under one false wake-up per hour of it. The second-stage check of section 5.4 gets under one per hour on this stream, but only by missing about one wake word in five, and this test can't say how it would fare on a room. Real conversation as training negatives is the usual next step.
 - **Triggering on part of the word.** The detection rule credits any wake-up whose window overlaps a "marvin", including one that fires on "mar-" before the word ends. A product that has to hear the whole word needs a stricter rule.
 - **The threshold isn't stored in the model.** `test` and `predict` default to 0.5; the operating point in section 5.2 is chosen per model on `validation.csv` and has to be carried to the firmware separately.
 - **Simple augmentation.** Training copies of the wake word are shifted in time, and the stream windows mix in background noise; volume and pitch aren't varied, and the background comes from just six recordings.
@@ -218,7 +236,8 @@ The first `make` downloads and extracts the ~2.4 GB Speech Commands archive, bui
 | `./test wake_word_cnn.txt validation.csv` | false-reject and false-accept rates across thresholds on the validation set: choose the threshold here |
 | `./test wake_word_cnn.txt test.csv 0.7` | both rates on the test set at the chosen threshold (either model; the defaults are `test.csv` and 0.5) |
 | `./predict wake_word_cnn.txt dataset/marvin/<file>.wav` | the wake-word probability of one WAV file, the way an application would get it |
-| `./stream dataset validation 20 wake_word_cnn.txt` | detection rate and false wake-ups per hour on the validation stream at 20 dB SNR, across thresholds: choose a streaming threshold here (about 5 minutes per CNN; several models can share one run) |
+| `./stream dataset validation 20 wake_word_cnn.txt` | detection rate and false wake-ups per hour on the validation stream at 20 dB SNR, across thresholds, waking on 1, 2 or 3 consecutive windows: choose a streaming threshold here (about 5 minutes per CNN; several models can share one run) |
+| `./stream dataset validation 20 wake_word_cnn.txt+wake_word_gru.txt` | the same for the CNN confirmed by the GRU (section 5.4) |
 | `./stream dataset test 20 wake_word_cnn.txt` | the same on the test stream (`SEED=n` in the environment shuffles it differently) |
 | `./prepare_data dataset sheila` | rebuilds all three CSVs for a different wake word; then train a new model |
 
@@ -290,9 +309,10 @@ threshold, false-reject %, false-accept %
 0.95, 8.7, 0.15
 ```
 
-`./stream dataset validation 20 wake_word_cnn.txt`, the top rows (the lowest threshold at or under 10 false wake-ups per hour is 0.99):
+`./stream dataset validation 20 wake_word_cnn.txt`, the top rows of its one-window table (the lowest threshold at or under 10 false wake-ups per hour is 0.99):
 
 ```
+wake_word_cnn.txt, 1 consecutive window
 threshold, detected %, missed %, false wake-ups, per hour
 ...
 0.970, 93.3, 6.7, 113, 22.01
@@ -307,7 +327,7 @@ threshold, detected %, missed %, false wake-ups, per hour
 Stream: 5.66 hours, 11005 test clips (195 "marvin"), gaps 250-1500 ms, background at 20 dB SNR (43.0 s of test background, looped), seed 1
 Window: 1 s every 100 ms, 1000 ms hold-off after each trigger
 
-wake_word_cnn.txt
+wake_word_cnn.txt, 1 consecutive window
 threshold, detected %, missed %, false wake-ups, per hour
 ...
 0.500, 97.4, 2.6, 1552, 274.15
