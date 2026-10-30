@@ -75,18 +75,18 @@ def make_banner(cnn_test, fc_test):
            [(f"{cnn_test:.1f}%", "test accuracy,", "CNN"),
             (f"{fc_test:.1f}%", "test accuracy,", "fully connected"),
             ("100K", "parameters,", "CNN")],
-           ["MNIST, 70,000 digits", "28 × 28 pixels", "CNN vs. FC", "STM32H7", "Same data, same test"])
+           ["MNIST, 70,000 digits", "Standard 10,000-digit test", "28 × 28 grayscale", "CNN vs. FC", "STM32H7"])
 
 
 def samples():
-    """Real MNIST test digits, binarized at 128 exactly as prepare_data.c does."""
+    """Real MNIST test digits, gray levels scaled to 0-1 exactly as prepare_data.c does."""
     images, labels = load_idx("t10k-images-idx3-ubyte"), load_idx("t10k-labels-idx1-ubyte")
     per = 14
     grid = np.ones((10 * 30 + 2, per * 30 + 2))
     for digit in range(10):
         idx = np.where(labels == digit)[0][:per]
         for k, i in enumerate(idx):
-            grid[digit * 30 + 2:digit * 30 + 30, k * 30 + 2:k * 30 + 30] = 1 - (images[i] >= 128)
+            grid[digit * 30 + 2:digit * 30 + 30, k * 30 + 2:k * 30 + 30] = 1 - images[i] / 255.0
     fig, ax = plt.subplots(figsize=(7.6, 5.4))
     ax.imshow(grid, cmap="gray", vmin=0, vmax=1, interpolation="nearest")
     ax.set_xticks([])
@@ -109,7 +109,7 @@ def training_curves(cnn_log, fc_log):
                     ha="center", fontsize=9, color=INK_2)
         ax.set_title(title, loc="left")
         ax.set_xlabel("epoch")
-        ax.set_xticks(e)
+        ax.set_xticks(e if len(e) <= 16 else [1] + list(range(5, len(e) + 1, 5)))
     axes[0].set_ylabel("cross-entropy")
     axes[0].set_ylim(0, None)
     fig.subplots_adjust(wspace=0.08)
@@ -214,7 +214,7 @@ def prediction(predict_log):
     a1.set_xticks([0, 0.25, 0.5, 0.75, 1], ["0", "0.25", "0.5", "0.75", "1"])
     a1.grid(axis="x")
     a1.grid(axis="y", visible=False)
-    a1.text(probs[best] + 0.02, best, f"{probs[best]:.3f}", va="center", fontsize=9.5, color=INK_2)
+    a1.text(probs[best] + 0.02, best, f"{probs[best]:.4f}", va="center", fontsize=9.5, color=INK_2)
     a1.set_title("Softmax output", loc="left")
     a1.set_xlabel("probability")
     style.save(fig, os.path.join(OUT, "predict.svg"))

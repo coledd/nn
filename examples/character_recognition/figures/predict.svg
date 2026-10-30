@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
   "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="538.2pt" height="273.6225pt" viewBox="0 0 538.2 273.6225" xmlns="http://www.w3.org/2000/svg" version="1.1">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="539.11454pt" height="273.6225pt" viewBox="0 0 539.11454 273.6225" xmlns="http://www.w3.org/2000/svg" version="1.1">
  <metadata>
   <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
    <cc:Work>
@@ -16,8 +16,8 @@
  <g id="figure_1">
   <g id="patch_1">
    <path d="M 0 273.6225 
-L 538.2 273.6225 
-L 538.2 0 
+L 539.11454 273.6225 
+L 539.11454 0 
 L 0 0 
 z
 " style="fill: #fcfcfb"/>
@@ -981,80 +981,80 @@ z
    </g>
    <g id="patch_4">
     <path d="M 197.93262 48.3575 
-L 198.254888 48.3575 
-L 198.254888 57.645877 
+L 197.93262 48.3575 
+L 197.93262 57.645877 
 L 197.93262 57.645877 
 z
 " clip-path="url(#pe08cdfced6)" style="fill: #c3c2b7"/>
    </g>
    <g id="patch_5">
     <path d="M 197.93262 65.245458 
-L 198.289416 65.245458 
-L 198.289416 74.533835 
+L 197.93262 65.245458 
+L 197.93262 74.533835 
 L 197.93262 74.533835 
 z
 " clip-path="url(#pe08cdfced6)" style="fill: #c3c2b7"/>
    </g>
    <g id="patch_6">
     <path d="M 197.93262 82.133416 
-L 198.254888 82.133416 
-L 198.254888 91.421793 
+L 197.93262 82.133416 
+L 197.93262 91.421793 
 L 197.93262 91.421793 
 z
 " clip-path="url(#pe08cdfced6)" style="fill: #c3c2b7"/>
    </g>
    <g id="patch_7">
     <path d="M 197.93262 99.021374 
-L 198.988621 99.021374 
-L 198.988621 108.309751 
+L 197.93262 99.021374 
+L 197.93262 108.309751 
 L 197.93262 108.309751 
 z
 " clip-path="url(#pe08cdfced6)" style="fill: #c3c2b7"/>
    </g>
    <g id="patch_8">
     <path d="M 197.93262 115.909332 
-L 197.958517 115.909332 
-L 197.958517 125.197709 
+L 197.93262 115.909332 
+L 197.93262 125.197709 
 L 197.93262 125.197709 
 z
 " clip-path="url(#pe08cdfced6)" style="fill: #c3c2b7"/>
    </g>
    <g id="patch_9">
     <path d="M 197.93262 132.797291 
-L 198.692251 132.797291 
-L 198.692251 142.085668 
+L 197.958517 132.797291 
+L 197.958517 142.085668 
 L 197.93262 142.085668 
 z
 " clip-path="url(#pe08cdfced6)" style="fill: #c3c2b7"/>
    </g>
    <g id="patch_10">
     <path d="M 197.93262 149.685249 
-L 198.139792 149.685249 
-L 198.139792 158.973626 
+L 197.93262 149.685249 
+L 197.93262 158.973626 
 L 197.93262 158.973626 
 z
 " clip-path="url(#pe08cdfced6)" style="fill: #c3c2b7"/>
    </g>
    <g id="patch_11">
     <path d="M 197.93262 166.573207 
-L 198.06498 166.573207 
-L 198.06498 175.861584 
+L 197.93262 166.573207 
+L 197.93262 175.861584 
 L 197.93262 175.861584 
 z
 " clip-path="url(#pe08cdfced6)" style="fill: #c3c2b7"/>
    </g>
    <g id="patch_12">
     <path d="M 197.93262 183.461165 
-L 482.445801 183.461165 
-L 482.445801 192.749542 
+L 485.642578 183.461165 
+L 485.642578 192.749542 
 L 197.93262 192.749542 
 z
 " clip-path="url(#pe08cdfced6)" style="fill: #2a78d6"/>
    </g>
    <g id="patch_13">
     <path d="M 197.93262 200.349123 
-L 197.975781 200.349123 
-L 197.975781 209.6375 
+L 197.93262 200.349123 
+L 197.93262 209.6375 
 L 197.93262 209.6375 
 z
 " clip-path="url(#pe08cdfced6)" style="fill: #c3c2b7"/>
@@ -1070,13 +1070,14 @@ L 520.2 217.7015
 " style="fill: none; stroke: #c3c2b7; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
    </g>
    <g id="text_18">
-    <!-- 0.989 -->
-    <g style="fill: #52514e" transform="translate(488.200576 191.791353) scale(0.095 -0.095)">
+    <!-- 0.9999 -->
+    <g style="fill: #52514e" transform="translate(491.397353 191.791353) scale(0.095 -0.095)">
      <use xlink:href="#NotoSans-Regular-13"/>
      <use xlink:href="#NotoSans-Regular-11" transform="translate(57.203125 0)"/>
      <use xlink:href="#NotoSans-Regular-1c" transform="translate(84 0)"/>
-     <use xlink:href="#NotoSans-Regular-1b" transform="translate(141.203125 0)"/>
+     <use xlink:href="#NotoSans-Regular-1c" transform="translate(141.203125 0)"/>
      <use xlink:href="#NotoSans-Regular-1c" transform="translate(198.40625 0)"/>
+     <use xlink:href="#NotoSans-Regular-1c" transform="translate(255.609375 0)"/>
     </g>
    </g>
    <g id="text_19">

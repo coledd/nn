@@ -23,10 +23,10 @@ all: train_cnn train_fc test predict $(CSV_OUTPUTS)
 ../../data_prep.o:
 	$(MAKE) -C ../.. data_prep.o
 
-train_cnn: train_cnn.c ../../data_prep.o ../../libnn.a
+train_cnn: train_cnn.c augment.h ../../data_prep.o ../../libnn.a
 	$(CC) $(CFLAGS) -I../.. train_cnn.c ../../data_prep.o ../../libnn.a $(LDFLAGS) -o $@
 
-train_fc: train_fc.c ../../data_prep.o ../../libnn.a
+train_fc: train_fc.c augment.h ../../data_prep.o ../../libnn.a
 	$(CC) $(CFLAGS) -I../.. train_fc.c ../../data_prep.o ../../libnn.a $(LDFLAGS) -o $@
 
 test: test.c ../../data_prep.o ../../libnn.a
@@ -47,15 +47,13 @@ $(MNIST_FILES): $(DATASET_DIR)/%:
 	curl -s -S -L -f $(MNIST_URL)/$*.gz -o $@.gz
 	gunzip -f $@.gz
 
-samples.csv: prepare_data $(MNIST_FILES)
-	./prepare_data $(DATASET_DIR) $@
-
-$(CSV_OUTPUTS)&: samples.csv ../../split.py
-	python ../../split.py samples.csv --train 0.8 --validation 0.1
+# prepare_data writes all three CSVs, keeping MNIST's own train/test split
+# (see its top comment).
+$(CSV_OUTPUTS)&: prepare_data $(MNIST_FILES)
+	./prepare_data $(DATASET_DIR)
 
 clean:
 	$(RM) train_cnn train_fc test predict prepare_data model.* $(CSV_OUTPUTS)
 
 distclean: clean
-	$(RM) samples.csv
 	$(RM) -r $(DATASET_DIR)

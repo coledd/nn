@@ -12,6 +12,35 @@
 #include "data_prep.h"
 #include "nn.h"
 
+// Scores `model` on every row of `path`: a digit counts as correct when
+// the model's most probable class is its label, the usual way MNIST
+// results are reported. Prints "<name>: correct/total = accuracy".
+static int score(nn_t *model, const char *path, const char *name)
+{
+  int num_outputs = (int)model->width[model->depth - 1];
+  data_t *data = data_load((char *)path, (int)model->width[0], num_outputs);
+  if (data == NULL) {
+    printf("Error: Could not load %s.\n", path);
+    return 1;
+  }
+  int correct = 0;
+  for (int i = 0; i < data->num_rows; i++) {
+    // nn_predict() manages its own buffers; don't free the result.
+    float *prediction = nn_predict(model, data->input[i]);
+    int predicted = 0, label = 0;
+    for (int j = 1; j < num_outputs; j++) {
+      if (prediction[j] > prediction[predicted])
+        predicted = j;
+      if (data->target[i][j] > data->target[i][label])
+        label = j;
+    }
+    correct += predicted == label;
+  }
+  printf("%s: %d/%d = %2.2f%%\n", name, correct, data->num_rows, (correct * 100.0f) / (float)data->num_rows);
+  data_free(data);
+  return 0;
+}
+
 int main(int argc, char *argv[]) {
   if (argc != 2) {
     printf("Usage: %s <model-file>\n", argv[0]);
@@ -53,76 +82,11 @@ int main(int argc, char *argv[]) {
     free(inplace_buf);
     return 1;
   }
-  // Load training data into memory
-  data_t *data = data_load("train.csv", model->width[0], model->width[model->depth - 1]);
-  if (data == NULL) {
-    printf("Error: Could not load training data (train.csv).\n");
+  if (score(model, "train.csv", "Train") != 0 || score(model, "test.csv", "Test ") != 0) {
     nn_free(model);
     free(inplace_buf);
     return 1;
   }
-  // Evaluate accuracy on the training set
-  int num_samples = 0;
-  int correct = 0;
-  for (int i = 0; i < data->num_rows; i++) {
-    num_samples++;
-    float *prediction = nn_predict(model, data->input[i]);
-    int true_positive = 0;
-    int false_positive = 0;
-    // Binary decision: target >= 0.5 to be in the positive class, else negative
-    for (int j = 0; j < model->width[model->depth - 1]; j++) {
-      if (data->target[i][j] >= 0.5f) {
-        if (prediction[j] >= 0.5f) {
-          true_positive++;
-        }
-      } else {
-        if (prediction[j] >= 0.5f) {
-          false_positive++;
-        }
-      }
-    }
-    // A sample is correct if exactly one output neuron is “on” for a
-    // true-positive and none for false-positive
-    if ((true_positive == 1) && (false_positive == 0)) {
-      correct++;
-    }
-    // Note: nn_predict manages its own buffers. Do NOT free(prediction) here.
-  }
-  printf("Train: %d/%d = %2.2f%%\n", correct, num_samples, (correct * 100.0f) / (float)num_samples);
-  data_free(data);
-  // Load unseen (test) data and evaluate
-  data = data_load("test.csv", model->width[0], model->width[model->depth - 1]);
-  if (data == NULL) {
-    printf("Error: Could not load test data (test.csv).\n");
-    nn_free(model);
-    free(inplace_buf);
-    return 1;
-  }
-  num_samples = 0;
-  correct = 0;
-  for (int i = 0; i < data->num_rows; i++) {
-    num_samples++;
-    float *prediction = nn_predict(model, data->input[i]);
-    int true_positive = 0;
-    int false_positive = 0;
-    for (int j = 0; j < model->width[model->depth - 1]; j++) {
-      if (data->target[i][j] >= 0.5f) {
-        if (prediction[j] >= 0.5f) {
-          true_positive++;
-        }
-      } else {
-        if (prediction[j] >= 0.5f) {
-          false_positive++;
-        }
-      }
-    }
-    if ((true_positive == 1) && (false_positive == 0)) {
-      correct++;
-    }
-    // Again, do not free(prediction); nn_predict manages its own buffers.
-  }
-  printf("Test : %d/%d = %2.2f%%\n", correct, num_samples, (correct * 100.0f) / (float)num_samples);
-  data_free(data);
   nn_free(model);
   free(inplace_buf);
   return 0;

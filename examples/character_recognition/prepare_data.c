@@ -7,20 +7,20 @@
 
 // Converts the original MNIST files (LeCun, Cortes & Burges; CC BY-SA 3.0)
 // -- four IDX files: 60,000 training and 10,000 test images of 28x28
-// 8-bit grayscale digits, and their labels -- into samples.csv, one row
-// per image:
+// 8-bit grayscale digits, and their labels -- into train.csv,
+// validation.csv and test.csv, one row per image:
 //
-//   784 pixels, row by row, each 1 if its gray level is 128 or more and 0
-//   otherwise, then the label one-hot over 10 columns
+//   784 pixels, row by row, each its gray level scaled to 0-1, then the
+//   label one-hot over 10 columns
 //
 // Rows end with a trailing comma (data_prep.c ignores it), the format this
-// example has always used. All 70,000 images go into one file, training
-// set first; ../../split.py shuffles them and makes its own
-// train/validation/test split, so MNIST's own split isn't kept.
+// example has always used.
 //
-// The pixels are binarized rather than scaled to 0-1 so that predict.c's
-// hardcoded sample and any model already trained on this example's data
-// keep working unchanged.
+// MNIST's own split is kept: test.csv is its 10,000 test images, written
+// by a different set of people than the training images, and the number
+// every published MNIST result is measured on. The training set's last
+// VALIDATION_COUNT images become validation.csv, for early stopping, and
+// the rest train.csv.
 
 #include <stdint.h>
 #include <stdio.h>
@@ -28,7 +28,7 @@
 
 #define IMAGE_SIZE (28 * 28)
 #define NUM_CLASSES 10
-#define THRESHOLD 128
+#define VALIDATION_COUNT 6000
 
 // Reads a whole IDX file and checks its magic number (2051 for images,
 // 2049 for labels). Returns the buffer and sets *count to the number of
@@ -67,7 +67,10 @@ static uint8_t *read_idx(const char *dir, const char *name, uint32_t magic, uint
   return buf;
 }
 
-static int write_set(FILE *out, const char *dir, const char *images_name, const char *labels_name)
+// Writes images [first, last) of one IDX image/label pair as CSV rows to
+// `path`. `last` beyond the file's image count means "to the end".
+static int write_set(const char *path, const char *dir, const char *images_name, const char *labels_name,
+                     uint32_t first, uint32_t last)
 {
   uint32_t num_images, num_labels;
   size_t images_header, labels_header;
@@ -81,16 +84,30 @@ static int write_set(FILE *out, const char *dir, const char *images_name, const 
     free(labels);
     return -1;
   }
-  for (uint32_t i = 0; i < num_images; i++) {
+  if (last > num_images)
+    last = num_images;
+  FILE *out = fopen(path, "w");
+  if (out == NULL) {
+    fprintf(stderr, "Error: Could not create %s\n", path);
+    free(images);
+    free(labels);
+    return -1;
+  }
+  for (uint32_t i = first; i < last; i++) {
     const uint8_t *pixels = images + images_header + (size_t)i * IMAGE_SIZE;
-    for (int p = 0; p < IMAGE_SIZE; p++)
-      fputs(pixels[p] >= THRESHOLD ? "1," : "0,", out);
+    for (int p = 0; p < IMAGE_SIZE; p++) {
+      if (pixels[p] == 0)
+        fputs("0,", out);
+      else
+        fprintf(out, "%.4g,", pixels[p] / 255.0f);
+    }
     int label = labels[labels_header + i];
     for (int c = 0; c < NUM_CLASSES; c++)
       fputs(c == label ? "1," : "0,", out);
     fputc('\n', out);
   }
-  printf("%s: %u images\n", images_name, num_images);
+  fclose(out);
+  printf("%s: %u images\n", path, last - first);
   free(images);
   free(labels);
   return 0;
@@ -98,22 +115,21 @@ static int write_set(FILE *out, const char *dir, const char *images_name, const 
 
 int main(int argc, char *argv[])
 {
-  if (argc != 3) {
-    printf("Usage: %s <mnist-dir> <output.csv>\n", argv[0]);
+  if (argc != 2) {
+    printf("Usage: %s <mnist-dir>\n", argv[0]);
     printf("  <mnist-dir> : directory holding the four uncompressed MNIST IDX files\n");
+    printf("Writes train.csv, validation.csv and test.csv to the current directory.\n");
     return 1;
   }
-  FILE *out = fopen(argv[2], "w");
-  if (out == NULL) {
-    fprintf(stderr, "Error: Could not create %s\n", argv[2]);
+  const char *dir = argv[1];
+  const uint32_t num_train = 60000 - VALIDATION_COUNT;
+  if (write_set("train.csv", dir, "train-images-idx3-ubyte", "train-labels-idx1-ubyte", 0, num_train) != 0 ||
+      write_set("validation.csv", dir, "train-images-idx3-ubyte", "train-labels-idx1-ubyte", num_train, UINT32_MAX) != 0 ||
+      write_set("test.csv", dir, "t10k-images-idx3-ubyte", "t10k-labels-idx1-ubyte", 0, UINT32_MAX) != 0) {
+    remove("train.csv");
+    remove("validation.csv");
+    remove("test.csv");
     return 1;
   }
-  if (write_set(out, argv[1], "train-images-idx3-ubyte", "train-labels-idx1-ubyte") != 0 ||
-      write_set(out, argv[1], "t10k-images-idx3-ubyte", "t10k-labels-idx1-ubyte") != 0) {
-    fclose(out);
-    remove(argv[2]);
-    return 1;
-  }
-  fclose(out);
   return 0;
 }

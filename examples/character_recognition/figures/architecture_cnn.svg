@@ -10,13 +10,13 @@
   <text x="115.0" y="184.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Input</text>
   <text x="115.0" y="206.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">28×28×1</text>
   <rect x="302" y="140" width="150" height="100" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
-  <text x="377.0" y="184.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Conv · linear</text>
+  <text x="377.0" y="184.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Conv · GELU</text>
   <text x="377.0" y="206.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">28×28×8</text>
   <rect x="564" y="140" width="150" height="100" rx="12" fill="#ccfbf1" stroke="#0d9488" stroke-width="2"/>
   <text x="639.0" y="184.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Max Pool</text>
   <text x="639.0" y="206.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">14×14×8</text>
   <rect x="826" y="140" width="150" height="100" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
-  <text x="901.0" y="184.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Conv · linear</text>
+  <text x="901.0" y="184.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Conv · GELU</text>
   <text x="901.0" y="206.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">14×14×16</text>
   <rect x="1088" y="140" width="150" height="100" rx="12" fill="#ccfbf1" stroke="#0d9488" stroke-width="2"/>
   <text x="1163.0" y="184.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Max Pool</text>
