@@ -2,14 +2,14 @@
   <img src="figures/banner.svg" alt="Object Detection: finding and counting red cells, white cells and platelets in a microscope photo of a blood smear." width="100%">
 </p>
 
-> **Abstract.** A complete blood count is, at its core, counting: red cells, white cells and platelets in a known volume of blood. This example trains a 15,763-parameter fully convolutional network to find and count all three in a microscope photo of a stained blood smear, using the public BCCD dataset of 364 labeled photos. Instead of predicting boxes, the network outputs one coarse heatmap per class whose peaks mark cell centers, so detection needs no changes to the library. On BCCD's held-out test photos, averaged over five trained models, it finds every one of the 71 labeled white cells, reaches 77% F1 on red cells with an unbiased total count, and 72% F1 on platelets. Quantized to int8 it fits in 23 KB of flash and about 270 KiB of RAM. The dataset's labels miss many cells, which limits what any score against them can show; the numbers are reported as measured, with that limit quantified.
+> **Abstract.** A complete blood count is, at its core, counting: red cells, white cells and platelets in a known volume of blood. This example trains a 15,763-parameter fully convolutional network to find and count all three in a microscope photo of a stained blood smear, using the public BCCD dataset of 364 labeled photos. Instead of predicting boxes, the network outputs one coarse heatmap per class whose peaks mark cell centers, so detection needs no changes to the library. On BCCD's held-out test photos, averaged over five trained models, it finds every one of the 71 labeled white cells, reaches 77% F1 on red cells with an unbiased total count, and 72% F1 on platelets. Quantized to int8 it fits in 23 KB of flash and about 73 KiB of RAM. The dataset's labels miss many cells, which limits what any score against them can show; the numbers are reported as measured, with that limit quantified.
 
 | | |
 |---|---|
 | **Task** | Object detection and counting: red blood cells, white blood cells and platelets in one photo |
 | **Data** | BCCD (Blood Cell Count and Detection): 364 photos of stained smears with a labeled box around each cell; MIT license; downloaded by the Makefile |
 | **Model** | Fully convolutional network, 64×48 RGB input → three 16×12 center heatmaps (1×1 convolution + sigmoid); 15,763 parameters |
-| **Hardware** | Any microcontroller with ≥512 KiB of RAM and a camera on a microscope; 23,156 bytes of flash for the int8 model |
+| **Hardware** | Any microcontroller with ≥256 KiB of RAM and a camera on a microscope; 23,156 bytes of flash for the int8 model |
 | **Result** | Test-set F1, mean of five models: white cells 97.3% (all 71 found), red cells 77.2%, platelets 72.5% |
 
 ## 1. The problem
@@ -92,7 +92,7 @@ The trade-off is that there are no boxes, just centers, and two objects of the s
 | 5 | CNN | 16×12×32 | 3×3 kernel, "same" padding, GELU |
 | 6 | CNN | 16×12×3 | 1×1 kernel, sigmoid (MSE loss): RBC, WBC, platelet heatmaps |
 
-15,763 trainable parameters. Layers 4 and 5 run at the output grid's resolution with no pooling, so neighboring cells stay distinct, and they widen what each output cell sees to 27×27 input pixels (a white cell is ~20 across at this scale). The first layer's stride of 2 takes the frame straight from 64×48 to 32×24, so no full-resolution 64×48×8 feature map is ever held in RAM; a stride-1 convolution followed by pooling would need about 70% more activation memory (461 KiB) for the same accuracy.
+15,763 trainable parameters. Layers 4 and 5 run at the output grid's resolution with no pooling, so neighboring cells stay distinct, and they widen what each output cell sees to 27×27 input pixels (a white cell is ~20 across at this scale). The first layer's stride of 2 takes the frame straight from 64×48 to 32×24, so no full-resolution 64×48×8 feature map is ever held in RAM; a stride-1 convolution followed by pooling would need about two-thirds more activation memory (122 KiB) for the same accuracy.
 
 ### 4.3 Choosing the threshold
 
@@ -134,7 +134,7 @@ What those numbers mean depends heavily on the labels, so class by class:
 | Resource | Cost |
 |---|---|
 | **Flash** | **23,156 bytes**, quantized to int8 and exported with `export --inplace`. Quantization cost no measurable accuracy (one fewer platelet detected on the test set). |
-| **RAM** | About **269 KiB**: a model loaded with `nn_load_model_inplace()` keeps its weights in flash but allocates two float buffers per layer, plus the caller's 36 KiB input buffer. That fits a 512 KiB-RAM microcontroller. |
+| **RAM** | About **73 KiB**: a model loaded with `nn_load_model_inplace()` keeps its weights in flash, and its activations in two buffers that every layer shares, each as wide as the widest layer it holds. Plus the caller's 36 KiB input buffer. That fits a 256 KiB-RAM microcontroller. |
 | **Compute** | About **4.0 million** multiply-adds per photo. |
 
 To build the flash-resident int8 model:

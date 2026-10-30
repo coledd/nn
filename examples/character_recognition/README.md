@@ -105,7 +105,7 @@ Training times are single-threaded on the desktop used for this document. Runs s
 
 **What convolution buys.** With slightly fewer parameters, the CNN makes about half the mistakes on digits from writers it never saw: 61 against 129 in the median runs. It also stands up to the published record: LeNet-5, the convolutional network MNIST was introduced with, scored 99.05% on this same test set [1].
 
-**What it costs.** The arithmetic: about eight times as many multiply-adds per digit, and an epoch of training about 38 times longer. For a device reading one digit at a time that is still only milliseconds of work (see section 6), but it's the trade the CNN makes: computation for accuracy, with about the same number of weights. Its working buffers do need more RAM (section 6).
+**What it costs.** The arithmetic: about eight times as many multiply-adds per digit, and an epoch of training about 38 times longer. For a device reading one digit at a time that is still only milliseconds of work (see section 6), but it's the trade the CNN makes: computation for accuracy, with about the same number of weights. Its working buffers do need more RAM: about 32 KiB, against under 2 KiB (section 6).
 
 **What each change bought.** An earlier version of this example scored 98.24% (CNN) and 97.26% (fully connected), from one run each. Most of the gap was in how it was measured and trained, not in either network's shape:
 
@@ -150,7 +150,7 @@ The mistakes that remain are the familiar MNIST ones: 5s whose upright stroke is
 | Resource | CNN | Fully connected |
 |---|---|---|
 | **Flash**, int8, `export --inplace` | 101,628 bytes | 110,272 bytes |
-| **RAM**, model loaded with `nn_load_model_inplace()` | ~96 KiB | ~2.8 KiB |
+| **RAM**, model loaded with `nn_load_model_inplace()` | ~32 KiB | ~1.7 KiB |
 | **Compute** per digit | ~880,000 multiply-adds | ~109,000 multiply-adds |
 | Accuracy cost of int8 (median run) | none: 99.39% → 99.40% | 98.71% → 98.67% |
 
@@ -162,7 +162,7 @@ To build the flash-resident int8 model:
 ./test model_cnn.inplace
 ```
 
-A model loaded with `nn_load_model_inplace()` keeps its weights in flash but allocates two float buffers per layer, about half of the CNN's 96 KiB for the first convolution's 28 × 28 × 8 output. By a multiply-add count, the CNN's ~880,000 per digit come to a few milliseconds on a Cortex-M7 at several hundred megahertz, and the fully-connected network's ~109,000 to well under one — an estimate, not a measurement.
+A model loaded with `nn_load_model_inplace()` keeps its weights in flash, and its activations in two buffers that every layer shares, each as wide as the widest layer it holds. Three-quarters of the CNN's 32 KiB is the first convolution's 28 × 28 × 8 output. By a multiply-add count, the CNN's ~880,000 per digit come to a few milliseconds on a Cortex-M7 at several hundred megahertz, and the fully-connected network's ~109,000 to well under one — an estimate, not a measurement.
 
 ## 7. Limitations
 

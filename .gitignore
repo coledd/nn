@@ -17,6 +17,7 @@ prepare_data
 prune
 quantize
 replay
+runs
 samples.csv
 speech_commands_v0.02.tar.gz
 stm32

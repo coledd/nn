@@ -542,11 +542,15 @@ static void nn_conv_backward(nn_t *nn, int layer, float *grad_in)
 // frame of an ongoing sequence (hold one mask per sequence instead). depth
 // is small in practice (a handful of layers), so this cheap O(depth) scan
 // on every dropout forward call isn't worth caching.
+static bool nn_is_recurrent_layer_type(uint8_t layer_type)
+{
+  return layer_type == LAYER_TYPE_RNN || layer_type == LAYER_TYPE_GRU || layer_type == LAYER_TYPE_LSTM;
+}
+
 static bool nn_has_recurrent_layer(const nn_t *nn)
 {
   for (int layer = 1; layer < (int)nn->depth; layer++) {
-    if (nn->layer_type[layer] == LAYER_TYPE_RNN || nn->layer_type[layer] == LAYER_TYPE_GRU ||
-        nn->layer_type[layer] == LAYER_TYPE_LSTM)
+    if (nn_is_recurrent_layer_type(nn->layer_type[layer]))
       return true;
   }
   return false;
@@ -1149,8 +1153,19 @@ nn_t *nn_init(void)
   nn->weight_moment2 = NULL;
   nn->bias_moment1 = NULL;
   nn->bias_moment2 = NULL;
+  nn->activation_buffer = NULL;
   nn->immutable = false;
   return nn;
+}
+
+// False only for a layer whose neuron[]/preact[] point into a model's shared
+// activation_buffer (see its comment in nn.h) rather than at the layer's own
+// allocations: every non-recurrent layer of a model loaded with
+// nn_load_model_inplace(). Recurrent layers always own theirs, since their
+// neuron[] is persistent state.
+static bool nn_owns_activations(const nn_t *nn, int layer)
+{
+  return !nn->activation_buffer || nn_is_recurrent_layer_type(nn->layer_type[layer]);
 }
 
 void nn_free(nn_t *nn)
@@ -1180,9 +1195,11 @@ void nn_free(nn_t *nn)
       free(nn->bias_moment1[layer]);
       free(nn->bias_moment2[layer]);
       free(nn->config[layer]);
-      free(nn->neuron[layer]);
+      if (nn_owns_activations(nn, layer)) {
+        free(nn->neuron[layer]);
+        free(nn->preact[layer]);
+      }
       free(nn->loss[layer]);
-      free(nn->preact[layer]);
     }
     free(nn->weight);
     free(nn->weight_adj);
@@ -1219,9 +1236,11 @@ void nn_free(nn_t *nn)
         free(nn->bias_quantized[layer]);
       }
       free(nn->config[layer]);
-      free(nn->neuron[layer]);
+      if (nn_owns_activations(nn, layer)) {
+        free(nn->neuron[layer]);
+        free(nn->preact[layer]);
+      }
       free(nn->loss[layer]);
-      free(nn->preact[layer]);
     }
     free(nn->weight_quantized);
     free(nn->weight_scale);
@@ -1288,6 +1307,7 @@ void nn_free(nn_t *nn)
       free(nn->gru_gate_grad[layer]);
     free(nn->gru_gate_grad);
   }
+  free(nn->activation_buffer);
   free(nn);
 }
 
@@ -2992,6 +3012,7 @@ static nn_t *nn_load_model_inplace_impl(const uint8_t *data, size_t size, bool c
   nn->weight_moment2 = NULL;
   nn->bias_moment1 = NULL;
   nn->bias_moment2 = NULL;
+  nn->activation_buffer = NULL;
 
   // Allocate every top-level array up front, all sized to `depth` and
   // zeroed, before touching nn->depth: nn_free() indexes every layer <
@@ -3109,17 +3130,56 @@ static nn_t *nn_load_model_inplace_impl(const uint8_t *data, size_t size, bool c
     }
   }
 
+  // An immutable model only ever runs forward, and a forward pass reads
+  // nothing but the layer just below the one it's computing, so every
+  // non-recurrent layer's activations can live in one of two buffers
+  // shared by the whole network, alternating layer by layer, instead of in
+  // two buffers of its own (neuron[] and preact[]). preact[] shares
+  // neuron[]'s storage: every layer type writes each element's preact and
+  // then its activation from it, element by element, so the activation
+  // simply overwrites the value it was computed from. That makes the RAM
+  // two full-width buffers of the widest layers instead of two per layer --
+  // on a CNN, where the first convolution's output dominates, about a third
+  // of what it was. Recurrent layers keep their own neuron[]/preact[]
+  // (their neuron[] is persistent state), allocated in the loop below.
+  // A mutable (copy == true) model may be trained, and backprop needs
+  // every layer's activations at once, so it keeps per-layer buffers too.
+  size_t shared_width[2] = {0, 0};
+  if (!copy) {
+    int side = 0;
+    for (uint32_t L = 1; L < depth; L++) {
+      if (nn_is_recurrent_layer_type(nn->layer_type[L]))
+        continue;
+      if (nn->width[L] > shared_width[side])
+        shared_width[side] = nn->width[L];
+      side = 1 - side;
+    }
+    if (shared_width[0] + shared_width[1] > 0) {
+      nn->activation_buffer = (float *)malloc((shared_width[0] + shared_width[1]) * sizeof(float));
+      if (!nn->activation_buffer)
+        goto fail;
+    }
+  }
+
   // Per-layer activation buffers (owned, small) and weight/bias data (for
   // everything but LAYER_TYPE_POOL/LAYER_TYPE_DROPOUT, which have neither):
   // aliased directly into `data` when copy == false, or allocated fresh and
   // copied out of it when copy == true (see nn_reader_obtain()) -- either
   // way, this loop never calls malloc() for weight/weight_quantized/
   // weight_scale/bias/bias_quantized itself.
+  int side = 0;
   for (uint32_t L = 1; L < depth; L++) {
-    nn->neuron[L] = (float *)malloc((size_t)nn->width[L] * sizeof(float));
-    nn->preact[L] = (float *)malloc((size_t)nn->width[L] * sizeof(float));
-    if (!nn->neuron[L] || !nn->preact[L])
-      goto fail;
+    if (nn_owns_activations(nn, (int)L)) {
+      nn->neuron[L] = (float *)malloc((size_t)nn->width[L] * sizeof(float));
+      nn->preact[L] = (float *)malloc((size_t)nn->width[L] * sizeof(float));
+      if (!nn->neuron[L] || !nn->preact[L])
+        goto fail;
+    } else {
+      // Same alternation as the sizing pass above.
+      nn->neuron[L] = nn->activation_buffer + (side ? shared_width[0] : 0);
+      nn->preact[L] = nn->neuron[L];
+      side = 1 - side;
+    }
     if (nn->layer_type[L] == LAYER_TYPE_RNN) {
       // neuron[L] doubles as this layer's hidden state (see LAYER_TYPE_RNN's
       // comment in nn.h) and must start at all-zeros, matching
@@ -3271,7 +3331,12 @@ fail:
 // of being copied into freshly malloc'd RAM. This is the entry point meant
 // for microcontroller targets where the model lives in flash and RAM is
 // tight: the dominant cost -- the weight matrices -- never gets duplicated
-// into RAM at all.
+// into RAM at all. Activations, the RAM that remains, take two buffers
+// shared by the whole network (nn->activation_buffer) rather than two per
+// layer, since an inference-only forward pass never needs more than the
+// layer it's computing and the one below it; see the comment where
+// nn_load_model_inplace_impl() sizes them. RNN/LSTM/GRU layers keep their
+// own, since their outputs are state carried to the next call.
 //
 // Requirements on `data`:
 //  - It must stay valid and UNCHANGED for as long as the returned nn_t is
@@ -3293,8 +3358,8 @@ fail:
 // inference. Release it with nn_free() as usual -- nn_free() checks
 // immutable to know it must not free those aliased pointers, only
 // the small bookkeeping this function allocates itself (layer_type/width/
-// activation/config, the top-level pointer arrays, and per-layer
-// neuron/preact activation buffers).
+// activation/config, the top-level pointer arrays, and the activation
+// buffers).
 nn_t *nn_load_model_inplace(const uint8_t *data, size_t size)
 {
   return nn_load_model_inplace_impl(data, size, false);

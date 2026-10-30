@@ -369,6 +369,16 @@ typedef struct {
   // scratch array the way weights do; the gradient is applied directly).
   float **bias_moment1;
   float **bias_moment2;
+  // Non-NULL only for a model returned by nn_load_model_inplace(): the two
+  // activation buffers every non-recurrent layer's neuron[]/preact[] point
+  // into, alternating layer by layer, instead of each layer owning its own
+  // (preact[layer] == neuron[layer] for those layers). An inference-only
+  // forward pass reads nothing but the layer just below the one it's
+  // computing, so this is all the RAM it needs. It does mean a hidden
+  // layer's neuron[] only holds its own values until two layers later
+  // overwrite them; nn_predict()'s returned output stays valid until the
+  // next call, as for any model. Never set this yourself.
+  float *activation_buffer;
   // True only for a model returned by nn_load_model_inplace(): weight,
   // weight_quantized, weight_scale, and bias/bias_quantized then point
   // directly into the caller's (read-only, e.g. flash-resident) buffer
@@ -402,9 +412,10 @@ nn_error_t nn_save_model_inplace(nn_t *nn, const char *path);
 // aliasing directly into `data` -- no RAM copy of the (dominant) weight
 // arrays -- instead of parsing them into freshly malloc'd storage like
 // nn_load_model_memory() does. Intended for microcontroller targets where
-// the model lives in flash and RAM is tight. See the comment above its
-// definition in nn.c for buffer-lifetime, alignment, and read-only usage
-// requirements.
+// the model lives in flash and RAM is tight; activations, too, take two
+// buffers shared by the whole network instead of two per layer (see nn_t's
+// activation_buffer). See the comment above its definition in nn.c for
+// buffer-lifetime, alignment, and read-only usage requirements.
 nn_t *nn_load_model_inplace(const uint8_t *data, size_t size);
 // Loads a model from an "inplace"-format buffer the same way
 // nn_load_model_inplace() does, except every weight/bias array is copied

@@ -61,7 +61,7 @@
     <path d="M 640 262 L 560 160" stroke="#898781" stroke-width="1"/>
     <circle cx="640" cy="262" r="3" fill="#898781"/>
     <text x="560" y="128" font-size="17" font-weight="600" fill="#0b0b0b" text-anchor="middle">Camera + controller</text>
-    <text x="560" y="149" font-size="15" fill="#52514e" text-anchor="middle">CNN on a microcontroller, ≥512 KiB RAM</text>
+    <text x="560" y="149" font-size="15" fill="#52514e" text-anchor="middle">CNN on a microcontroller, ≥256 KiB RAM</text>
 
     <path d="M 688 248 L 800 190" stroke="#898781" stroke-width="1"/>
     <text x="808" y="182" font-size="17" font-weight="600" fill="#0b0b0b">Motion trigger</text>

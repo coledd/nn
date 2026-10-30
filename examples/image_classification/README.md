@@ -2,14 +2,14 @@
   <img src="figures/banner.svg" alt="Image Classification: telling a cat from a dog in an ordinary photo, on the microcontroller in a camera-equipped pet door." width="100%">
 </p>
 
-> **Abstract.** A camera-equipped pet door has to decide, on the spot and on its own microcontroller, whether the animal in front of it is the cat it should let in or the dog it should keep out. This example trains a 25,042-parameter convolutional network for that decision on about 23,300 ordinary pet photos from two public datasets, Kaggle Cats and Dogs and Oxford-IIIT Pet. Each photo is cropped and area-averaged to 48×48 RGB pixels by the same preprocessing code that would run on the device. Over five training runs it classifies 85.2–86.7% of a balanced held-out test set correctly (guessing scores 50%) and 83.9–84.9% of Oxford's dog-heavy test set (always answering "dog" scores 67.8%). Quantized to int8 it occupies 36 KB of flash and needs about 340 KiB of RAM. Roughly one photo in seven is still misclassified; the numbers are reported as measured.
+> **Abstract.** A camera-equipped pet door has to decide, on the spot and on its own microcontroller, whether the animal in front of it is the cat it should let in or the dog it should keep out. This example trains a 25,042-parameter convolutional network for that decision on about 23,300 ordinary pet photos from two public datasets, Kaggle Cats and Dogs and Oxford-IIIT Pet. Each photo is cropped and area-averaged to 48×48 RGB pixels by the same preprocessing code that would run on the device. Over five training runs it classifies 85.2–86.7% of a balanced held-out test set correctly (guessing scores 50%) and 83.9–84.9% of Oxford's dog-heavy test set (always answering "dog" scores 67.8%). Quantized to int8 it occupies 36 KB of flash and needs about 92 KiB of RAM. Roughly one photo in seven is still misclassified; the numbers are reported as measured.
 
 | | |
 |---|---|
 | **Task** | Binary image classification: cat or dog, one photo at a time |
 | **Data** | Kaggle Cats and Dogs (25,000 photos) and Oxford-IIIT Pet (~7,400 photos of 37 breeds), downloaded by the Makefile |
 | **Model** | 4-stage CNN (5×5 and 3×3 convolutions, GELU, max pooling) → global average pooling → softmax 2; 25,042 parameters |
-| **Hardware** | Any microcontroller with ≥512 KiB of RAM and a camera; 36,244 bytes of flash for the int8 model |
+| **Hardware** | Any microcontroller with ≥256 KiB of RAM and a camera; 36,244 bytes of flash for the int8 model |
 | **Result** | 86.2% average accuracy on the balanced Kaggle test set, 84.4% on the Oxford test set (five runs) |
 
 ## 1. The problem
@@ -123,7 +123,7 @@ The hardest breeds are the plausible ones:
 | Resource | Cost |
 |---|---|
 | **Flash** | **36,244 bytes**, quantized to int8 and exported with `export --inplace`. Quantization cost no measurable accuracy: 86.28% / 84.11% on the two test sets vs. the float model's 86.36% / 84.22%. |
-| **RAM** | About **338 KiB**: a model loaded with `nn_load_model_inplace()` keeps its weights in flash but allocates two float buffers per layer (activations and pre-activations), most of it for the first two layers at full 48×48 resolution. Plus the caller's 27 KiB input buffer. That fits a 512 KiB-RAM microcontroller, but not a 256 KiB one. |
+| **RAM** | About **92 KiB**: a model loaded with `nn_load_model_inplace()` keeps its weights in flash, and its activations in two buffers that every layer shares, each as wide as the widest layer it holds; most of it is the first convolution's 48×48×8 output. Plus the caller's 27 KiB input buffer. That fits a 256 KiB-RAM microcontroller, but not a 128 KiB one. |
 | **Compute** | About **3.4 million** multiply-adds per image. |
 
 To build the flash-resident int8 model:
@@ -134,7 +134,7 @@ To build the flash-resident int8 model:
 ./test model.inplace
 ```
 
-**More accuracy, if RAM allows.** `IMG_SIZE` in `image_prep.h` (any multiple of 16) and the channel counts in `train.c` trade RAM for accuracy. Measured over two runs each, a 64×64 input reached 87.2% / 85.7% on the two test sets with ~601 KiB of activations, and doubling every stage's channels at 48×48 reached 88.1% / 86.1% (and 83% of Oxford's cats) with ~676 KiB. Changing either means rerunning `make`, which rebuilds the CSVs, and training a fresh model.
+**More accuracy, if RAM allows.** `IMG_SIZE` in `image_prep.h` (any multiple of 16) and the channel counts in `train.c` trade RAM for accuracy. Measured over two runs each, a 64×64 input reached 87.2% / 85.7% on the two test sets with ~166 KiB of activations, and doubling every stage's channels at 48×48 reached 88.1% / 86.1% (and 83% of Oxford's cats) with ~182 KiB. Either still fits a 256 KiB part. Changing either means rerunning `make`, which rebuilds the CSVs, and training a fresh model.
 
 ## 7. Limitations
 

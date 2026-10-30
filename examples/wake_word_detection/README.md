@@ -2,14 +2,14 @@
   <img src="figures/banner.svg" alt="Wake Word Detection: listening for one spoken word in a second of audio, with log-mel features and a small CNN." width="100%">
 </p>
 
-> **Abstract.** A voice-controlled device has to notice when it's being addressed without streaming its microphone anywhere or keeping a power-hungry speech recognizer awake. This example builds that always-on listener: it turns each second of 16 kHz audio into 49 frames of 20 log-mel energies, normalized per clip, and a 14,818-parameter convolutional network (CNN) reads the whole second as a 49 × 20 image and decides whether it was the wake word, "marvin". It trains and tests on real recordings from Google's Speech Commands dataset, split by speaker with the dataset's own lists, so every test clip is a voice the network never heard. Over five training runs, with the decision threshold set on validation data for at most 1% false accepts, it missed 7.2–8.2% of 195 test "marvin" clips and was falsely triggered by 0.8–1.1% of 10,853 other clips. A GRU on the same data, the recurrent model this example used before, misses 8–17% while triggering on 4–13% of other clips. Quantized to int8 the CNN takes 21 KB of flash, but about 251 KiB of RAM, against the GRU's 2 KiB.
+> **Abstract.** A voice-controlled device has to notice when it's being addressed without streaming its microphone anywhere or keeping a power-hungry speech recognizer awake. This example builds that always-on listener: it turns each second of 16 kHz audio into 49 frames of 20 log-mel energies, normalized per clip, and a 14,818-parameter convolutional network (CNN) reads the whole second as a 49 × 20 image and decides whether it was the wake word, "marvin". It trains and tests on real recordings from Google's Speech Commands dataset, split by speaker with the dataset's own lists, so every test clip is a voice the network never heard. Over five training runs, with the decision threshold set on validation data for at most 1% false accepts, it missed 7.2–8.2% of 195 test "marvin" clips and was falsely triggered by 0.8–1.1% of 10,853 other clips. A GRU on the same data, the recurrent model this example used before, misses 8–17% while triggering on 4–13% of other clips. Quantized to int8 the CNN takes 21 KB of flash and about 78 KiB of RAM, against the GRU's 2 KiB.
 
 | | |
 |---|---|
 | **Task** | Binary classification of a 1-second audio clip: the wake word "marvin", or anything else |
 | **Data** | Google Speech Commands v0.02 (CC BY 4.0), downloaded by the Makefile, split by speaker: training on 1,710 "marvin" clips (plus time-shifted copies) and 9,274 other-word and background-noise clips; testing on 195 "marvin" and 10,853 others from unseen speakers |
 | **Model** | 49 × 20 log-mel image → 3 × (3 × 3 conv + 2 × 2 max pool) → softmax 2; 14,818 parameters. Baseline: GRU 32 → sigmoid, 5,121 parameters |
-| **Hardware** | An always-on microcontroller with a MEMS microphone, in front of a larger system it wakes; 21 KB of flash and ~251 KiB of RAM for the int8 CNN |
+| **Hardware** | An always-on microcontroller with a MEMS microphone, in front of a larger system it wakes; 21 KB of flash and ~78 KiB of RAM for the int8 CNN |
 | **Result** | At a threshold set on validation: 7.2–8.2% false rejects at 0.8–1.1% false accepts (5 runs). At 0.5: 4.1–5.6% false rejects, 1.4–3.8% false accepts |
 
 ## 1. The problem
@@ -148,7 +148,7 @@ On the device, `audio_features.[ch]` and `../../fft.[ch]` run against the microp
 | Resource | CNN | GRU |
 |---|---|---|
 | **Flash**, int8, `export --inplace` | **21,300 bytes** | 5,572 bytes |
-| **RAM**, model loaded with `nn_load_model_inplace()` | **~251 KiB** | ~1.9 KiB |
+| **RAM**, model loaded with `nn_load_model_inplace()` | **~78 KiB** | ~1.7 KiB |
 | **Compute** per one-second window | ~1.8 million multiply-adds | ~250,000 multiply-adds, over 49 calls |
 | Accuracy cost of int8 (run 4, threshold 0.5) | none: 4.1% / 2.09% → 4.1% / 2.03% | none: 16.9% / 4.27% → 16.9% / 4.04% |
 
@@ -160,15 +160,15 @@ Flash and RAM were measured on the quantized, exported models. To build one:
 ./test wake_word_cnn.inplace
 ```
 
-**RAM is the CNN's real cost.** A model loaded with `nn_load_model_inplace()` keeps its weights in flash but allocates two float buffers per layer (activations and pre-activations), and the first convolution's 49 × 20 × 16 output alone accounts for half of the 251 KiB. That fits a microcontroller with 512 KiB of RAM, but not the 64–256 KiB parts many always-on listeners are built on. Two smaller layouts were measured, five runs each, at the same 1% false-accept operating point:
+**RAM is the CNN's larger cost.** A model loaded with `nn_load_model_inplace()` keeps its weights in flash, and its activations in two buffers that every layer shares, each as wide as the widest layer it holds. The first convolution's 49 × 20 × 16 output is four-fifths of the CNN's 78 KiB. That fits a microcontroller with 128 KiB of RAM alongside the audio buffers, though not the smallest always-on parts. Two smaller layouts were measured, five runs each, at the same 1% false-accept operating point:
 
 | Layout | RAM | Flash | False-reject rate at ~1% false accepts, median (range) |
 |---|---|---|---|
-| This example's CNN | 251 KiB | 21 KB | **7.7%** (7.2–8.2) |
-| Stride-2 first convolution, 8 → 16 → 32 filters | 77 KiB | 9.5 KB | 13.3% (8.7–14.9) |
-| Stride-2 first convolution, then pooling, 16 → 32 → 32 filters | 65 KiB | 21 KB | 13.3% (7.7–16.4) |
+| This example's CNN | 78 KiB | 21 KB | **7.7%** (7.2–8.2) |
+| Stride-2 first convolution, 8 → 16 → 32 filters | 25 KiB | 9.5 KB | 13.3% (8.7–14.9) |
+| Stride-2 first convolution, then pooling, 16 → 32 → 32 filters | 21 KiB | 21 KB | 13.3% (7.7–16.4) |
 
-Both cut RAM by two-thirds or more, and both nearly double the missed wake words. A library inference path that applied each activation in place and alternated between two buffers for the whole network, instead of keeping two per layer, would run this example's CNN in about 76 KiB, under a third of its current RAM, with no change in accuracy. That's the better fix, and it isn't implemented yet.
+Both cut RAM by two-thirds or more, and both nearly double the missed wake words. Before the library shared activation buffers across layers, the same three layouts needed 251, 77 and 65 KiB.
 
 ## 7. Limitations
 
