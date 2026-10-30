@@ -8,12 +8,13 @@
 // Trains a GRU layer to classify one SEQUENCE_LEN-frame log-mel feature
 // sequence -- one whole ~1-second utterance -- as the wake word or not,
 // against train.csv/validation.csv (see prepare_data.c/README.md for how
-// those are built from the real Speech Commands dataset). GRU was chosen
-// after comparing it against a plain RNN and an LSTM on this same task and
-// data: GRU won clearly (see this example's README for the numbers), so
-// this is the only architecture kept here now, unlike
-// examples/fall_detection, which keeps its three-way comparison since none
-// of its architectures came out clearly ahead on its task.
+// those are built from the real Speech Commands dataset). This is the
+// example's recurrent baseline; train_cnn.c is its main model, and the
+// README compares the two. GRU was chosen as the recurrent layer after
+// comparing it against a plain RNN and an LSTM on this task, where it won
+// clearly. The tuning numbers quoted in this file's comments were all
+// measured on this example's earlier random per-clip split, with a
+// balanced test set (see git history), not on today's speaker split.
 //
 // Every frame of one clip here shares the SAME label -- since the whole
 // clip either is or isn't the wake word -- so this follows
@@ -64,6 +65,23 @@ static float run_clip(nn_t *nn, float *input, float *target, float rate, bool tr
   return total_err / (float)SEQUENCE_LEN;
 }
 
+// Validation error with each class weighted equally: the mean of the
+// wake-word clips' average error and everything else's. validation.csv
+// holds ~50 negatives per wake-word clip (see prepare_data.c), so a plain
+// average would be almost entirely about false accepts, and early stopping
+// would favor a model that rarely fires at all.
+static float validation_error_balanced(nn_t *nn, data_t *data)
+{
+  float total[2] = { 0.0f, 0.0f };
+  int count[2] = { 0, 0 };
+  for (int i = 0; i < data->num_rows; i++) {
+    int c = data->target[i][0] >= 0.5f;
+    total[c] += run_clip(nn, data->input[i], data->target[i], 0.0f, false);
+    count[c]++;
+  }
+  return 0.5f * (total[0] / (float)(count[0] > 0 ? count[0] : 1) + total[1] / (float)(count[1] > 0 ? count[1] : 1));
+}
+
 int main(int argc, char *argv[]) {
   if (argc != 2) {
     printf("Usage: %s <model-file>\n", argv[0]);
@@ -82,7 +100,7 @@ int main(int argc, char *argv[]) {
   // this real dataset vary by several accuracy points) found 0.03 both the
   // highest-scoring and the most consistent across runs (~88% test
   // accuracy both times, vs. lower and more erratic results at 0.01-0.02)
-  // -- see this example's README for the numbers. NN_OPTIMIZER_ADAM was
+  // -- on the earlier split; see this file's top comment. NN_OPTIMIZER_ADAM was
   // also tried (on a plain RNN, before this example was simplified to GRU
   // only) and made things worse; plain SGD stays the default.
   float learning_rate = 0.03f;
@@ -148,7 +166,7 @@ int main(int argc, char *argv[]) {
     // LAYER_TYPE_GRU's comment in nn.h) -- a hidden state that should hold
     // a signal across frames without decaying, which is what won this
     // architecture the comparison against a plain RNN and an LSTM (see
-    // this example's README).
+    // this file's top comment).
     nn_add_layer(nn, LAYER_TYPE_GRU, hidden_units, ACTIVATION_FUNCTION_TYPE_NONE, NULL);
     // LAYER_TYPE_DROPOUT (see examples/character_recognition/train_cnn.c's
     // identical layer for the FC case) was tried here, between the GRU and
@@ -157,7 +175,7 @@ int main(int argc, char *argv[]) {
     // all of this network's ~5,121 parameters) was overfitting. Measured
     // across several runs at two rates, it made things worse, not better
     // (0.3: 82-87% test accuracy, avg ~85%; 0.1: 83-86%, avg ~84%; vs. no
-    // dropout's 87-89%, avg ~88% -- see this example's README).
+    // dropout's 87-89%, avg ~88%, on the earlier split).
     //
     // The first suspect was that nn_dropout_forward() (nn.c) resampled its
     // mask fresh on every call, injecting a different random mask into the
@@ -193,10 +211,7 @@ int main(int argc, char *argv[]) {
   // why this baseline matters when resuming an existing model.
   float best_validation_error = FLT_MAX;
   if (resuming) {
-    float total = 0.0f;
-    for (int i = 0; i < validation_data->num_rows; i++)
-      total += run_clip(nn, validation_data->input[i], validation_data->target[i], 0.0f, false);
-    best_validation_error = total / (float)validation_data->num_rows;
+    best_validation_error = validation_error_balanced(nn, validation_data);
     printf("Starting validation error (existing model): %.5f\n", best_validation_error);
   }
   int epochs_since_improvement = 0;
@@ -207,10 +222,7 @@ int main(int argc, char *argv[]) {
     for (int j = 0; j < train_data->num_rows; j++)
       total_train_error += run_clip(nn, train_data->input[j], train_data->target[j], learning_rate, true);
     train_error = total_train_error / (float)train_data->num_rows;
-    float total_validation_err = 0.0f;
-    for (int i = 0; i < validation_data->num_rows; i++)
-      total_validation_err += run_clip(nn, validation_data->input[i], validation_data->target[i], 0.0f, false);
-    validation_error = total_validation_err / (float)validation_data->num_rows;
+    validation_error = validation_error_balanced(nn, validation_data);
     epochs++;
     printf("%.5f, %.5f, %.5f\n", train_error, validation_error, learning_rate);
     learning_rate *= annealing;

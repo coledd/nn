@@ -5,15 +5,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// Independently re-evaluates a model saved by train.c against test.csv --
-// the held-out third split split.py
-// carved off from samples.csv, never touched during training or
-// early-stopping validation. Architecture-agnostic, like
-// examples/character_recognition/test.c and examples/fall_detection/
-// test.c: this just reads whatever the model's input/output widths are.
-// Reports overall clip-level accuracy plus the standard keyword-spotting
-// metrics: false-reject rate (wake-word clips the model missed) and
-// false-accept rate (everything-else clips the model wrongly flagged).
+// Independently re-evaluates a model saved by train_gru.c or train_cnn.c
+// against test.csv -- the held-out split prepare_data.c built from the
+// dataset's testing_list.txt (speakers never seen in training), never
+// touched during training or early-stopping validation. Works with either
+// model: wake_word_probability() (wake_word_data.h) reads its shape.
+// Reports the standard keyword-spotting metrics at the chosen threshold --
+// false-reject rate (wake-word clips the model missed) and false-accept
+// rate (everything-else clips the model wrongly flagged) -- plus overall
+// accuracy, then the same two rates across a range of thresholds: the
+// trade-off a product picks its operating point from. Pick it on
+// validation.csv (`./test model.txt validation.csv`), then confirm it on
+// test.csv, so the reported test numbers aren't tuned to the test set.
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -23,22 +26,50 @@
 #include "nn.h"
 #include "wake_word_data.h"
 
-// Width of one flattened CSV row (for data_load() below) -- NOT the
-// network's own INPUT layer width (NUM_MEL_BINS, one frame -- see
-// train.c's identical NUM_INPUTS comment for why).
+// Width of one flattened CSV row (for data_load() below): the whole clip.
 #define NUM_INPUTS (SEQUENCE_LEN * NUM_MEL_BINS)
 
+// One clip-level confusion count at a given threshold.
+typedef struct {
+  int positives, negatives, false_rejects, false_accepts;
+} counts_t;
+
+static counts_t count_errors(const float *probability, data_t *data, float threshold)
+{
+  counts_t c = { 0, 0, 0, 0 };
+  for (int i = 0; i < data->num_rows; i++) {
+    bool predicted_wake_word = probability[i] >= threshold;
+    if (data->target[i][0] >= 0.5f) {
+      c.positives++;
+      c.false_rejects += !predicted_wake_word;
+    } else {
+      c.negatives++;
+      c.false_accepts += predicted_wake_word;
+    }
+  }
+  return c;
+}
+
+static float percent(int n, int d)
+{
+  return d > 0 ? 100.0f * (float)n / (float)d : 0.0f;
+}
+
 int main(int argc, char *argv[]) {
-  if (argc != 2) {
-    printf("Usage: %s <model-file>\n", argv[0]);
-    printf("  <model-file> : Path to a model saved by train.c (ascii, binary, or inplace)\n");
+  if (argc < 2 || argc > 4) {
+    printf("Usage: %s <model-file> [data.csv] [threshold]\n", argv[0]);
+    printf("  <model-file> : Path to a model saved by train_gru.c or train_cnn.c (ascii, binary, or inplace)\n");
+    printf("  [data.csv]   : Clips to score (default: test.csv)\n");
+    printf("  [threshold]  : Wake-word probability at or above which a clip counts as the wake word (default: 0.5)\n");
     return 1;
   }
   const char *model_path = argv[1];
+  const char *data_path = argc > 2 ? argv[2] : "test.csv";
+  float threshold = argc > 3 ? strtof(argv[3], NULL) : 0.5f;
 
-  data_t *test_data = data_load("test.csv", NUM_INPUTS, 1);
+  data_t *test_data = data_load((char *)data_path, NUM_INPUTS, 1);
   if (test_data == NULL) {
-    fprintf(stderr, "Error: Could not load test data (test.csv). Run `make` first to build it from the dataset.\n");
+    fprintf(stderr, "Error: Could not load %s. Run `make` first to build it from the dataset.\n", data_path);
     return 1;
   }
 
@@ -76,46 +107,36 @@ int main(int argc, char *argv[]) {
     data_free(test_data);
     return 1;
   }
-  if ((model->width[0] != (uint32_t)NUM_MEL_BINS) || (model->width[model->depth - 1] != 1)) {
-    fprintf(stderr, "Error: Model dimensions (%u inputs, %u outputs) don't match the wake-word task (%d inputs, 1 output) -- is this a train.c model?\n",
-            model->width[0], model->width[model->depth - 1], NUM_MEL_BINS);
+  if (wake_word_probability(model, test_data->input[0]) < 0.0f) {
+    fprintf(stderr, "Error: Model dimensions (%u inputs, %u outputs) don't match either wake-word model -- is this a train_gru.c or train_cnn.c model?\n",
+            model->width[0], model->width[model->depth - 1]);
     nn_free(model);
     free(inplace_buf);
     data_free(test_data);
     return 1;
   }
 
-  int correct = 0, false_accepts = 0, false_rejects = 0, positives = 0, negatives = 0;
-  for (int i = 0; i < test_data->num_rows; i++) {
-    nn_reset_state(model);
-    float *pred = NULL;
-    for (int t = 0; t < SEQUENCE_LEN; t++)
-      pred = nn_predict(model, test_data->input[i] + t * NUM_MEL_BINS);
-    bool predicted_wake_word = pred[0] >= 0.5f;
-    bool actual_wake_word = test_data->target[i][0] >= 0.5f;
-    if (predicted_wake_word == actual_wake_word)
-      correct++;
-    if (actual_wake_word) {
-      positives++;
-      if (!predicted_wake_word)
-        false_rejects++;
-    } else {
-      negatives++;
-      if (predicted_wake_word)
-        false_accepts++;
-    }
-  }
+  float *probability = malloc((size_t)test_data->num_rows * sizeof(float));
+  for (int i = 0; i < test_data->num_rows; i++)
+    probability[i] = wake_word_probability(model, test_data->input[i]);
 
-  printf("Test clips: %d (%d wake word, %d other), %d frames each\n",
-         test_data->num_rows, positives, negatives, SEQUENCE_LEN);
-  printf("Accuracy: %d/%d = %.2f%%\n", correct, test_data->num_rows,
-         100.0f * (float)correct / (float)test_data->num_rows);
-  if (positives > 0)
-    printf("False-reject rate (missed wake word): %d/%d = %.1f%%\n", false_rejects, positives,
-           100.0f * (float)false_rejects / (float)positives);
-  if (negatives > 0)
-    printf("False-accept rate (wrongly triggered): %d/%d = %.1f%%\n", false_accepts, negatives,
-           100.0f * (float)false_accepts / (float)negatives);
+  counts_t c = count_errors(probability, test_data, threshold);
+  int correct = test_data->num_rows - c.false_rejects - c.false_accepts;
+  printf("%s: %d clips (%d wake word, %d other), threshold %.2f\n", data_path, test_data->num_rows,
+         c.positives, c.negatives, threshold);
+  printf("Accuracy: %d/%d = %.2f%%\n", correct, test_data->num_rows, percent(correct, test_data->num_rows));
+  printf("False-reject rate (missed wake word): %d/%d = %.1f%%\n", c.false_rejects, c.positives,
+         percent(c.false_rejects, c.positives));
+  printf("False-accept rate (wrongly triggered): %d/%d = %.2f%%\n", c.false_accepts, c.negatives,
+         percent(c.false_accepts, c.negatives));
+
+  printf("\nthreshold, false-reject %%, false-accept %%\n");
+  for (int t = 1; t <= 19; t++) {
+    float th = 0.05f * (float)t;
+    counts_t ct = count_errors(probability, test_data, th);
+    printf("%.2f, %.1f, %.2f\n", th, percent(ct.false_rejects, ct.positives), percent(ct.false_accepts, ct.negatives));
+  }
+  free(probability);
 
   data_free(test_data);
   nn_free(model);

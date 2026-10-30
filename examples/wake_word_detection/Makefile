@@ -8,7 +8,7 @@ WAKE_WORD := marvin
 
 .PHONY: all clean distclean
 
-all: train test predict $(CSV_OUTPUTS)
+all: train_gru train_cnn test predict $(CSV_OUTPUTS)
 
 # Recursing into the top-level Makefile (rather than duplicating nn.o's/
 # data_prep.o's/audio_features.o's/fft.o's/wav_reader.o's build rules here) keeps
@@ -29,8 +29,11 @@ all: train test predict $(CSV_OUTPUTS)
 ../../wav_reader.o:
 	$(MAKE) -C ../.. wav_reader.o
 
-train: train.c ../../data_prep.o ../../libnn.a
-	$(CC) $(CFLAGS) -I../.. train.c ../../data_prep.o ../../libnn.a $(LDFLAGS) -o $@
+train_gru: train_gru.c ../../data_prep.o ../../libnn.a
+	$(CC) $(CFLAGS) -I../.. train_gru.c ../../data_prep.o ../../libnn.a $(LDFLAGS) -o $@
+
+train_cnn: train_cnn.c ../../data_prep.o ../../libnn.a
+	$(CC) $(CFLAGS) -I../.. train_cnn.c ../../data_prep.o ../../libnn.a $(LDFLAGS) -o $@
 
 test: test.c ../../data_prep.o ../../libnn.a
 	$(CC) $(CFLAGS) -I../.. test.c ../../data_prep.o ../../libnn.a $(LDFLAGS) -o $@
@@ -60,16 +63,15 @@ $(DATASET_DIR)/$(WAKE_WORD): $(DATASET_ARCHIVE)
 # Unlike examples/character_recognition's samples.csv (MNIST's pixels,
 # flattened and thresholded), flattening this dataset into feature rows is
 # itself the thing this example exists to demonstrate -- see
-# prepare_data.c's top comment.
-samples.csv: prepare_data $(DATASET_DIR)/$(WAKE_WORD)
-	./prepare_data $(DATASET_DIR) $@ $(WAKE_WORD)
-
-$(CSV_OUTPUTS)&: samples.csv ../../split.py
-	python ../../split.py samples.csv --train 0.8 --validation 0.1
+# prepare_data.c's top comment. It writes all three splits itself, from the
+# dataset's own speaker-separated validation/testing lists, instead of
+# shuffling one samples.csv through ../../split.py.
+$(CSV_OUTPUTS)&: prepare_data $(DATASET_DIR)/$(WAKE_WORD)
+	./prepare_data $(DATASET_DIR) $(WAKE_WORD)
 
 clean:
-	$(RM) train test predict prepare_data model.* $(CSV_OUTPUTS)
+	$(RM) train_gru train_cnn test predict prepare_data model.* $(CSV_OUTPUTS)
 
 distclean: clean
-	$(RM) samples.csv $(DATASET_ARCHIVE)
+	$(RM) $(DATASET_ARCHIVE)
 	$(RM) -r $(DATASET_DIR)

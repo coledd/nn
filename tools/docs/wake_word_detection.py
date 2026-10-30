@@ -7,7 +7,7 @@
 # log-mel features are computed from the downloaded Speech Commands clips
 # (run make in the example first) with the same transform as
 # ../../audio_features.c -- checked against it to within float rounding;
-# the results chart plots the runs the README reports.
+# the results charts plot the runs the README reports.
 #
 #   python3 tools/docs/wake_word_detection.py
 
@@ -26,11 +26,27 @@ OUT = os.path.join(ROOT, "figures")
 # wake_word_data.h
 SAMPLE_RATE, FRAME_LEN, HOP_LEN, NUM_MEL_BINS = 16000, 512, 320, 20
 
-# Seven train + test runs of the shipped code (test.csv: 217 "marvin", 224 other).
-RUNS = {"accuracy": [84.13, 85.26, 88.89, 84.13, 89.12, 78.23, 86.62],
-        "false reject": [17.5, 26.3, 10.6, 9.7, 6.0, 20.7, 15.7],
-        "false accept": [14.3, 3.6, 11.6, 21.9, 15.6, 22.8, 11.2]}
+# Five train_cnn + five train_gru runs of the shipped code, each scored by
+# test on test.csv (195 "marvin", 10,853 other clips, speakers unseen in
+# training) at the default 0.5 threshold: false-reject %, false-accept %.
+RUNS = {"CNN": [(4.1, 2.79), (5.6, 1.43), (5.6, 2.79), (4.1, 2.09), (4.6, 3.79)],
+        "GRU": [(16.9, 4.27), (8.2, 12.97), (11.8, 5.94), (11.8, 9.36), (11.8, 11.84)]}
 
+# test's threshold table on test.csv for one representative run of each
+# (threshold, false-reject %, false-accept %).
+TRADEOFF = {
+    "CNN": [(0.05, 1.5, 11.14), (0.10, 1.5, 7.59), (0.15, 2.1, 5.88), (0.20, 2.1, 4.99), (0.25, 2.1, 4.22),
+            (0.30, 2.6, 3.57), (0.35, 3.1, 3.05), (0.40, 3.6, 2.70), (0.45, 3.6, 2.43), (0.50, 4.1, 2.09),
+            (0.55, 4.6, 1.78), (0.60, 5.6, 1.50), (0.65, 6.2, 1.32), (0.70, 7.2, 1.08), (0.75, 8.7, 0.92),
+            (0.80, 9.7, 0.67), (0.85, 10.3, 0.49), (0.90, 13.3, 0.39), (0.95, 16.9, 0.14)],
+    "GRU": [(0.05, 4.1, 18.91), (0.10, 5.1, 14.36), (0.15, 6.2, 12.16), (0.20, 8.7, 10.61), (0.25, 9.7, 9.42),
+            (0.30, 10.3, 8.51), (0.35, 10.8, 7.68), (0.40, 11.3, 6.96), (0.45, 11.8, 6.49), (0.50, 11.8, 5.94),
+            (0.55, 11.8, 5.51), (0.60, 12.3, 5.10), (0.65, 12.8, 4.67), (0.70, 12.8, 4.15), (0.75, 14.4, 3.70),
+            (0.80, 15.4, 3.41), (0.85, 17.4, 3.07), (0.90, 19.5, 2.48), (0.95, 24.1, 1.79)],
+}
+# Each CNN run's threshold chosen on validation.csv (the lowest giving at
+# most 1% false accepts there), and what it scored on test.csv.
+TUNED = [(0.80, 8.2, 0.81), (0.65, 7.7, 0.88), (0.80, 7.7, 0.99), (0.70, 7.2, 1.08), (0.85, 7.2, 0.99)]
 
 def load_clip(path):
     """16-bit PCM -> float in [-1, 1), padded or truncated to 1 s (prepare_data.c)."""
@@ -67,11 +83,11 @@ def make_banner():
     banner(os.path.join(OUT, "banner.svg"), 4, "Audio · real data",
            "Wake Word Detection",
            ["Listening for one spoken word in a second of audio,",
-            "with log-mel features and a 32-unit GRU."],
-           [("85%", "median test", "accuracy, 7 runs"),
+            "with log-mel features and a small CNN."],
+           [("~8%", "of wake words missed", "at 1% false triggers"),
             ("49 × 20", "log-mel frames", "per 1 s clip"),
-            ("5,121", "parameters,", "one GRU layer")],
-           ["Google Speech Commands", "Real recordings", "16 kHz audio", "Log-mel features", "GRU"])
+            ("21 KB", "of flash,", "quantized to int8")],
+           ["Google Speech Commands", "Unseen speakers", "16 kHz audio", "Log-mel features", "CNN"])
 
 
 def audio_figure():
@@ -114,19 +130,46 @@ def audio_figure():
 def runs_figure():
     fig, ax = plt.subplots(figsize=(8.6, 3.4))
     rng = np.random.default_rng(3)
-    for i, (name, ys) in enumerate(RUNS.items()):
-        ys = np.array(ys)
-        ax.scatter(i + rng.uniform(-0.1, 0.1, len(ys)), ys, s=44, color=SERIES[i], edgecolor=style.SURFACE,
-                   linewidth=1.5, zorder=3)
-        med = np.median(ys)
-        ax.plot([i - 0.2, i + 0.2], [med, med], color=style.INK, lw=2, zorder=4)
-        ax.text(i + 0.26, med, f"median {med:.1f}%", va="center", fontsize=9, color=INK_2)
-    ax.set_xticks(range(3), ["accuracy", "false-reject rate\n(missed “marvin”)", "false-accept rate\n(other audio taken for it)"])
-    ax.set_xlim(-0.5, 2.9)
-    ax.set_ylim(0, 100)
+    for k, (name, runs) in enumerate(RUNS.items()):
+        for j in range(2):
+            ys = np.array([r[j] for r in runs])
+            x = j * 2.4 + k
+            ax.scatter(x + rng.uniform(-0.1, 0.1, len(ys)), ys, s=44, color=SERIES[k], edgecolor=style.SURFACE,
+                       linewidth=1.5, zorder=3, label=name if j == 0 else None)
+            med = np.median(ys)
+            ax.plot([x - 0.2, x + 0.2], [med, med], color=style.INK, lw=2, zorder=4)
+            ax.text(x + 0.26, med, f"{med:.1f}%", va="center", fontsize=9, color=INK_2)
+    ax.set_xticks([0.5, 2.9], ["false-reject rate\n(missed “marvin”)", "false-accept rate\n(other audio taken for it)"])
+    ax.set_xlim(-0.5, 4.0)
+    ax.set_ylim(0, 20)
+    ax.set_yticks([0, 5, 10, 15, 20])
     ax.yaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
-    ax.text(-0.45, 2, "441 held-out clips per run", fontsize=8.5, color=MUTED)
+    ax.legend(loc="upper right", frameon=False)
+    ax.text(-0.45, 19, "5 runs each · threshold 0.5 · 11,048 test clips", fontsize=8.5, color=MUTED, va="top")
     style.save(fig, os.path.join(OUT, "runs.svg"))
+
+
+def tradeoff_figure():
+    fig, ax = plt.subplots(figsize=(8.6, 3.8))
+    for k, (name, rows) in enumerate(TRADEOFF.items()):
+        fa = [r[2] for r in rows]
+        fr = [r[1] for r in rows]
+        ax.plot(fa, fr, color=SERIES[k], lw=2, marker="o", ms=3.5, label=f"{name}, one run", zorder=3)
+        half = next(r for r in rows if r[0] == 0.5)
+        ax.scatter([half[2]], [half[1]], s=70, facecolor=style.SURFACE, edgecolor=SERIES[k], linewidth=2, zorder=4)
+        ax.annotate("0.5", (half[2], half[1]), xytext=(6, -12), textcoords="offset points", fontsize=8.5, color=INK_2)
+    ax.scatter([t[2] for t in TUNED], [t[1] for t in TUNED], s=60, marker="D", color=style.INK, zorder=5,
+               label="CNN, all 5 runs, threshold\nset on validation for at most 1% false accepts")
+    ax.set_xscale("log")
+    ax.set_xticks([0.2, 0.5, 1, 2, 5, 10, 20], ["0.2%", "0.5%", "1%", "2%", "5%", "10%", "20%"])
+    ax.minorticks_off()
+    ax.set_xlim(0.1, 25)
+    ax.set_ylim(0, 26)
+    ax.yaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
+    ax.set_xlabel("false-accept rate (other audio taken for “marvin”)", fontsize=9)
+    ax.set_ylabel("false-reject rate\n(missed “marvin”)", fontsize=9)
+    ax.legend(loc="lower left", frameon=False, fontsize=8.5)
+    style.save(fig, os.path.join(OUT, "tradeoff.svg"))
 
 
 if __name__ == "__main__":
@@ -135,4 +178,5 @@ if __name__ == "__main__":
     make_banner()
     audio_figure()
     runs_figure()
+    tradeoff_figure()
     print("wrote", sorted(os.listdir(OUT)))

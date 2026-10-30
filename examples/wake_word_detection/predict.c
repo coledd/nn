@@ -29,7 +29,7 @@
 int main(int argc, char *argv[]) {
   if (argc != 3) {
     printf("Usage: %s <model-file> <sample.wav>\n", argv[0]);
-    printf("  <model-file> : Path to a model saved by train.c\n");
+    printf("  <model-file> : Path to a model saved by train_gru.c or train_cnn.c\n");
     printf("  <sample.wav> : A 16-bit PCM mono WAV file at %d Hz, e.g. one from the Speech Commands dataset\n", SAMPLE_RATE);
     return 1;
   }
@@ -99,26 +99,18 @@ int main(int argc, char *argv[]) {
     free(inplace_buf);
     return 1;
   }
-  // NUM_MEL_BINS, not SEQUENCE_LEN * NUM_MEL_BINS: the model's INPUT layer
-  // is one frame wide (see train.c's NUM_INPUTS comment for why), even
-  // though `sequence` below holds the whole clip's SEQUENCE_LEN frames.
-  if (model->width[0] != NUM_MEL_BINS) {
-    fprintf(stderr, "Error: model expects %u inputs per frame, but NUM_MEL_BINS is %d.\n",
-            model->width[0], NUM_MEL_BINS);
+  // The GRU model reads the sequence one frame per call, the CNN model the
+  // whole clip at once; wake_word_probability() (wake_word_data.h) handles
+  // both, and is the call a firmware would make once per window.
+  float probability = wake_word_probability(model, sequence);
+  if (probability < 0.0f) {
+    fprintf(stderr, "Error: model's shape (%u inputs, %u outputs) matches neither wake-word model.\n",
+            model->width[0], model->width[model->depth - 1]);
     nn_free(model);
     free(inplace_buf);
     return 1;
   }
-
-  // Feed the sequence through the model one frame at a time -- same
-  // per-timestep calling convention every train_*.c uses (see
-  // train.c's run_clip()) -- and report the final frame's prediction,
-  // the wake-word probability after having seen the whole clip.
-  nn_reset_state(model);
-  float *prediction = NULL;
-  for (int t = 0; t < SEQUENCE_LEN; t++)
-    prediction = nn_predict(model, sequence + t * NUM_MEL_BINS);
-  printf("Wake-word probability: %.5f\n", prediction[0]);
+  printf("Wake-word probability: %.5f\n", probability);
 
   nn_free(model);
   free(inplace_buf);

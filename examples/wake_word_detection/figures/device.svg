@@ -49,7 +49,7 @@
       <rect x="480" y="262" width="160" height="92" rx="10" fill="#2a78d6"/>
       <text x="560" y="290" font-size="14" font-weight="600" fill="#ffffff" text-anchor="middle">Microcontroller</text>
       <text x="560" y="310" font-size="12.5" fill="#cde2fb" text-anchor="middle">always on: log-mel</text>
-      <text x="560" y="328" font-size="12.5" fill="#cde2fb" text-anchor="middle">features + GRU</text>
+      <text x="560" y="328" font-size="12.5" fill="#cde2fb" text-anchor="middle">features + CNN</text>
       <rect x="480" y="372" width="160" height="78" rx="10" fill="#e1e0d9"/>
       <text x="560" y="403" font-size="14" font-weight="600" fill="#52514e" text-anchor="middle">Main processor</text>
       <text x="560" y="423" font-size="12.5" fill="#52514e" text-anchor="middle">asleep until woken</text>

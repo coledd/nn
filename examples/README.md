@@ -11,7 +11,7 @@ Read in order, they also tell a story. Each example needs a little more memory, 
 | 1 | [Character recognition](character_recognition/README.md) | CNN, with a plain FC baseline | Read a handwritten digit from a 28×28 image | 100K (CNN) / 109K (FC) |
 | 2 | [Gesture recognition](gesture_recognition/README.md) | RNN | Tell four gestures apart from a 32-sample burst of accelerometer readings | 388 |
 | 3 | [Fall detection](fall_detection/README.md) | RNN, GRU and LSTM, compared | Watch a continuous accelerometer stream and flag a fall, sample by sample | 337 / 977 / 1,297 |
-| 4 | [Wake word detection](wake_word_detection/README.md) | GRU | Decide whether a second of real speech is the wake word | 5,121 |
+| 4 | [Wake word detection](wake_word_detection/README.md) | CNN, with a GRU baseline | Decide whether a second of real speech is the wake word | 14.8K (CNN) / 5,121 (GRU) |
 | 5 | [Image classification](image_classification/README.md) | CNN | Tell a cat from a dog in an ordinary photo | 25K |
 | 6 | [Object detection](object_detection/README.md) | Fully convolutional CNN | Find and count every red cell, white cell and platelet in a blood smear | 16K |
 | 7 | [Predictive maintenance](predictive_maintenance/README.md) | FC, behind an FFT front end | Name the fault developing in a machine from its vibration, months before it fails | 4,792 |
@@ -33,7 +33,7 @@ Continuously monitors a simulated accelerometer stream for a fall — a brief fr
 
 <a href="wake_word_detection/README.md"><img src="wake_word_detection/figures/banner.svg" alt="Example 04, Wake Word Detection" width="100%"></a>
 
-The always-on listener in front of a voice-controlled device: each second of real speech from Google's Speech Commands becomes 49 frames of log-mel energies (`audio_features.[ch]`, shared and firmware-ready), fed to a GRU that decides whether it was the wake word, "marvin". Over seven training runs it classifies **a median 85%** of held-out clips correctly.
+The always-on listener in front of a voice-controlled device: each second of real speech from Google's Speech Commands becomes 49 frames of log-mel energies (`audio_features.[ch]`, shared and firmware-ready), which a small CNN reads as one 49 × 20 image to decide whether it was the wake word, "marvin". Tested on speakers it never trained on, with its threshold set on validation data, it **misses about 8% of wake words at 1% false triggers**, against far more of both for a GRU baseline on the same data.
 
 <a href="image_classification/README.md"><img src="image_classification/figures/banner.svg" alt="Example 05, Image Classification" width="100%"></a>
 

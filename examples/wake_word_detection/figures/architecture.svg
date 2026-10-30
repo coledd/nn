@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 72 1400 470" width="1400" height="470">
-  <title>Wake Word Detection — log-mel features + GRU network (train.c)</title>
+  <title>Wake Word Detection — log-mel features + CNN (train_cnn.c)</title>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#374151"/>
@@ -29,25 +29,35 @@
   <line x1="270" y1="180" x2="340" y2="180" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
   <line x1="570" y1="180" x2="640" y2="180" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
   <line x1="910" y1="180" x2="980" y2="180" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
-  <path d="M 1115 235 L 1115 300 L 155 300 L 155 380" fill="none" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
-  <text x="640" y="292" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#374151">one frame of 20 values per call, 49 calls per clip</text>
-  <rect x="40" y="380" width="230" height="110" rx="12" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
-  <text x="155.0" y="430.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Input</text>
-  <text x="155.0" y="451.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">20 (one frame)</text>
-  <rect x="380" y="380" width="230" height="110" rx="12" fill="#e0e7ff" stroke="#4f46e5" stroke-width="2"/>
-  <text x="495.0" y="430.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">GRU · gated</text>
-  <text x="495.0" y="451.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">32 units</text>
-  <path d="M 450 380 C 450 330 540 330 540 376" fill="none" stroke="#4f46e5" stroke-width="2.5" marker-end="url(#arrow-purple)"/>
-  <text x="495" y="340" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#4f46e5">hidden state h, across the clip's 49 frames</text>
-  <rect x="720" y="380" width="230" height="110" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
-  <text x="835.0" y="430.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Output · Sigmoid</text>
-  <text x="835.0" y="451.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">1 (wake-word probability)</text>
-  <rect x="1060" y="380" width="250" height="110" rx="12" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
-  <text x="1185.0" y="420.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Decision</text>
-  <text x="1185.0" y="441.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">after the last frame:</text>
-  <text x="1185.0" y="462.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">wake word if ≥ 0.5</text>
-  <line x1="270" y1="435" x2="380" y2="435" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="610" y1="435" x2="720" y2="435" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="950" y1="435" x2="1060" y2="435" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
-  <text x="700.0" y="530" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#6b7280">5,121 parameters · nn_reset_state() clears h before each clip</text>
+  <path d="M 1115 235 L 1115 300 L 130 300 L 130 380" fill="none" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="640" y="292" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#374151">the whole clip at once: a 49 × 20 image, time down, mel bands across</text>
+  <rect x="40" y="380" width="180" height="110" rx="12" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+  <text x="130.0" y="430.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Input</text>
+  <text x="130.0" y="451.0" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">49 × 20 × 1</text>
+  <rect x="274" y="380" width="180" height="110" rx="12" fill="#e0e7ff" stroke="#4f46e5" stroke-width="2"/>
+  <text x="364.0" y="419.5" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Conv 3×3 · GELU</text>
+  <text x="364.0" y="440.5" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">16 filters, 2×2 max pool</text>
+  <text x="364.0" y="461.5" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">→ 24 × 10 × 16</text>
+  <rect x="508" y="380" width="180" height="110" rx="12" fill="#e0e7ff" stroke="#4f46e5" stroke-width="2"/>
+  <text x="598.0" y="419.5" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Conv 3×3 · GELU</text>
+  <text x="598.0" y="440.5" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">32 filters, 2×2 max pool</text>
+  <text x="598.0" y="461.5" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">→ 12 × 5 × 32</text>
+  <rect x="742" y="380" width="180" height="110" rx="12" fill="#e0e7ff" stroke="#4f46e5" stroke-width="2"/>
+  <text x="832.0" y="419.5" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Conv 3×3 · GELU</text>
+  <text x="832.0" y="440.5" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">32 filters, 2×2 max pool</text>
+  <text x="832.0" y="461.5" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">→ 6 × 2 × 32</text>
+  <rect x="976" y="380" width="180" height="110" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+  <text x="1066.0" y="419.5" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Output · Softmax</text>
+  <text x="1066.0" y="440.5" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">2: other,</text>
+  <text x="1066.0" y="461.5" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">wake word</text>
+  <rect x="1210" y="380" width="180" height="110" rx="12" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+  <text x="1300.0" y="419.5" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2937">Decision</text>
+  <text x="1300.0" y="440.5" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">wake word if its</text>
+  <text x="1300.0" y="461.5" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1f2937">probability ≥ threshold</text>
+  <line x1="220" y1="435" x2="274" y2="435" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="454" y1="435" x2="508" y2="435" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="688" y1="435" x2="742" y2="435" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="922" y1="435" x2="976" y2="435" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="1156" y1="435" x2="1210" y2="435" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="700.0" y="530" text-anchor="middle" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#6b7280">14,818 parameters · about 1.8 million multiply-adds per clip · 20% dropout before the output, training only</text>
 </svg>
