@@ -15,6 +15,10 @@
 // words, plus 1-second chunks cut from the dataset's own background-noise
 // recordings, so the model also learns to stay quiet through
 // silence/ambient noise, not just other speech).
+// train.csv also gets one-second windows cut from short runs of training
+// clips laid end to end over background noise (see
+// write_stream_windows()), so the model learns what a sliding window on a
+// live stream sees, not just one word alone in its second.
 //
 // Rows go straight into train.csv, validation.csv and test.csv, following
 // the dataset's own validation_list.txt and testing_list.txt rather than a
@@ -45,6 +49,7 @@
 
 #include <dirent.h>
 #include <limits.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -69,6 +74,25 @@
 // speaker said it within the second -- and a live microphone window
 // won't be either.
 #define MAX_SHIFT_SAMPLES (SAMPLE_RATE / 10)
+
+// Streaming windows (see write_stream_windows()): train.csv also gets
+// one-second windows cut from short runs of training clips laid end to
+// end, the way a listener's sliding window sees speech, rather than one
+// word sitting alone in its second. STREAM_POSITIVES_PER_CLIP windows per
+// training wake-word clip, each containing all of the spoken word, and
+// STREAM_NEGATIVE_RATIO times as many windows from runs of other words.
+// The gaps between clips match stream.c's, and the background is the
+// training stretch of the noise recordings at STREAM_SNR_MIN_DB to
+// STREAM_SNR_MAX_DB, from noisy to nearly silent.
+#define STREAM_POSITIVES_PER_CLIP 2
+#define STREAM_NEGATIVE_RATIO 5
+#define STREAM_GAP_MIN_MS 250
+#define STREAM_GAP_MAX_MS 1500
+#define STREAM_SNR_MIN_DB 5
+#define STREAM_SNR_MAX_DB 60
+// Each window is cut from three clips and two gaps: at most 3 s of clips
+// and 3 s of gaps.
+#define STREAM_RUN_SAMPLES (6 * SAMPLE_RATE)
 
 typedef enum { SPLIT_TRAIN = 0, SPLIT_VALIDATION, SPLIT_TEST, NUM_SPLITS } split_t;
 static const char *split_paths[NUM_SPLITS] = { "train.csv", "validation.csv", "test.csv" };
@@ -282,6 +306,212 @@ static void write_background_noise(FILE *files[NUM_SPLITS], audio_features_t *af
   closedir(dir);
 }
 
+// Every training-split ".wav" path under the dataset's word directories:
+// the wake word's in `wake`, every other word's in `other`.
+typedef struct {
+  char **paths;
+  int count, capacity;
+} path_list_t;
+
+static void path_list_add(path_list_t *list, const char *path)
+{
+  if (list->count == list->capacity) {
+    list->capacity = list->capacity ? 2 * list->capacity : 1024;
+    list->paths = realloc(list->paths, (size_t)list->capacity * sizeof(char *));
+  }
+  list->paths[list->count++] = strdup(path);
+}
+
+static void path_list_free(path_list_t *list)
+{
+  for (int i = 0; i < list->count; i++)
+    free(list->paths[i]);
+  free(list->paths);
+}
+
+static int is_other_word_dir(const char *name, const char *wake_word);
+
+static void collect_training_clips(const char *dataset_dir, const char *wake_word, path_list_t *wake, path_list_t *other)
+{
+  DIR *top = opendir(dataset_dir);
+  if (top == NULL)
+    return;
+  struct dirent *word;
+  while ((word = readdir(top)) != NULL) {
+    int is_wake = strcmp(word->d_name, wake_word) == 0;
+    if (!is_wake && !is_other_word_dir(word->d_name, wake_word))
+      continue;
+    char dir_path[MAX_PATH_LEN];
+    snprintf(dir_path, sizeof(dir_path), "%s/%s", dataset_dir, word->d_name);
+    DIR *dir = opendir(dir_path);
+    if (dir == NULL)
+      continue;
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+      size_t len = strlen(entry->d_name);
+      if (len < 5 || strcmp(entry->d_name + len - 4, ".wav") != 0 || split_of(word->d_name, entry->d_name) != SPLIT_TRAIN)
+        continue;
+      char path[MAX_PATH_LEN];
+      snprintf(path, sizeof(path), "%s/%s", dir_path, entry->d_name);
+      path_list_add(is_wake ? wake : other, path);
+    }
+    closedir(dir);
+  }
+  closedir(top);
+}
+
+// The training stretch (the first 80%, as write_background_noise() splits
+// them) of every background recording, end to end. Returns its length.
+static long load_training_background(const char *noise_dir, float **bed)
+{
+  DIR *dir = opendir(noise_dir);
+  if (dir == NULL)
+    return 0;
+  long len = 0;
+  struct dirent *entry;
+  while ((entry = readdir(dir)) != NULL) {
+    size_t name_len = strlen(entry->d_name);
+    if (name_len < 5 || strcmp(entry->d_name + name_len - 4, ".wav") != 0)
+      continue;
+    char path[MAX_PATH_LEN];
+    snprintf(path, sizeof(path), "%s/%s", noise_dir, entry->d_name);
+    wav_t *wav = wav_load(path);
+    if (wav == NULL)
+      continue;
+    long n = (long)(wav->num_samples / CLIP_SAMPLES * 8 / 10) * CLIP_SAMPLES;
+    *bed = realloc(*bed, (size_t)(len + n) * sizeof(float));
+    memcpy(*bed + len, wav->samples, (size_t)n * sizeof(float));
+    len += n;
+    wav_free(wav);
+  }
+  closedir(dir);
+  return len;
+}
+
+// Adds `wav` to `run` at `at`, returning the sample just past it.
+static long place_clip(float *run, long at, const wav_t *wav)
+{
+  memcpy(run + at, wav->samples, (size_t)wav->num_samples * sizeof(float));
+  return at + wav->num_samples;
+}
+
+static long random_gap(void)
+{
+  return (long)(STREAM_GAP_MIN_MS + rand() % (STREAM_GAP_MAX_MS - STREAM_GAP_MIN_MS + 1)) * SAMPLE_RATE / 1000;
+}
+
+// The sample range of the spoken word inside a clip: the first and last
+// 10 ms block whose energy is within 20 dB of the clip's loudest block.
+static void spoken_extent(const wav_t *wav, long *first, long *last)
+{
+  const int block = SAMPLE_RATE / 100;
+  int num_blocks = wav->num_samples / block;
+  float peak = 0.0f;
+  for (int b = 0; b < num_blocks; b++) {
+    float e = 0.0f;
+    for (int k = 0; k < block; k++)
+      e += wav->samples[b * block + k] * wav->samples[b * block + k];
+    if (e > peak)
+      peak = e;
+  }
+  *first = 0;
+  *last = wav->num_samples;
+  int found = 0;
+  for (int b = 0; b < num_blocks; b++) {
+    float e = 0.0f;
+    for (int k = 0; k < block; k++)
+      e += wav->samples[b * block + k] * wav->samples[b * block + k];
+    if (e >= 0.01f * peak) {
+      if (!found)
+        *first = (long)b * block;
+      found = 1;
+      *last = (long)(b + 1) * block;
+    }
+  }
+}
+
+// Writes train.csv's streaming windows (see STREAM_POSITIVES_PER_CLIP):
+// each is one second cut from three training clips laid end to end with
+// random gaps, over the training background at a random SNR. A positive
+// window has a wake-word clip in the middle and is placed anywhere that
+// still holds all of its spoken word; a negative has three other words
+// and is placed anywhere at all, so it usually straddles two of them or
+// holds part of one -- the windows a sliding listener sees most, and that
+// whole, centered clips never show it. Returns the rows written per label.
+static void write_stream_windows(FILE *file, audio_features_t *af, const char *dataset_dir, const char *wake_word,
+                                 int written[2])
+{
+  path_list_t wake = { 0 }, other = { 0 };
+  collect_training_clips(dataset_dir, wake_word, &wake, &other);
+  char noise_dir[MAX_PATH_LEN];
+  snprintf(noise_dir, sizeof(noise_dir), "%s/%s", dataset_dir, BACKGROUND_NOISE_DIR);
+  float *bed = NULL;
+  long bed_len = load_training_background(noise_dir, &bed);
+  if (wake.count == 0 || other.count < 3 || bed_len < STREAM_RUN_SAMPLES) {
+    fprintf(stderr, "Warning: not enough training clips or background noise for streaming windows.\n");
+    path_list_free(&wake);
+    path_list_free(&other);
+    free(bed);
+    return;
+  }
+  static float run[STREAM_RUN_SAMPLES], clip[CLIP_SAMPLES];
+  const int num_positive = STREAM_POSITIVES_PER_CLIP * wake.count;
+  const int total = num_positive * (1 + STREAM_NEGATIVE_RATIO);
+  for (int n = 0; n < total; n++) {
+    const int label = n < num_positive;
+    wav_t *wav[3];
+    wav[0] = wav_load(other.paths[rand() % other.count]);
+    wav[1] = wav_load(label ? wake.paths[n / STREAM_POSITIVES_PER_CLIP] : other.paths[rand() % other.count]);
+    wav[2] = wav_load(other.paths[rand() % other.count]);
+    if (!wav[0] || !wav[1] || !wav[2]) {
+      for (int k = 0; k < 3; k++)
+        wav_free(wav[k]);
+      continue;
+    }
+    memset(run, 0, sizeof(run));
+    long middle = place_clip(run, 0, wav[0]) + random_gap();
+    long run_len = place_clip(run, place_clip(run, middle, wav[1]) + random_gap(), wav[2]);
+    // Background at a random SNR, relative to the three clips' power.
+    double speech = 0.0, noise = 0.0;
+    long samples = 0;
+    for (int k = 0; k < 3; k++) {
+      for (int i = 0; i < wav[k]->num_samples; i++)
+        speech += (double)wav[k]->samples[i] * wav[k]->samples[i];
+      samples += wav[k]->num_samples;
+    }
+    long bed_at = (long)(((unsigned long)rand() * RAND_MAX + rand()) % (unsigned long)(bed_len - run_len));
+    for (long i = 0; i < run_len; i++)
+      noise += (double)bed[bed_at + i] * bed[bed_at + i];
+    double snr_db = STREAM_SNR_MIN_DB + (STREAM_SNR_MAX_DB - STREAM_SNR_MIN_DB) * ((double)rand() / RAND_MAX);
+    float gain = noise > 0.0 ? (float)sqrt(speech / samples / (noise / run_len) / pow(10.0, snr_db / 10.0)) : 0.0f;
+    for (long i = 0; i < run_len; i++)
+      run[i] += gain * bed[bed_at + i];
+    // Where the window may start.
+    long lo = 0, hi = run_len - CLIP_SAMPLES;
+    if (label) {
+      long first, last;
+      spoken_extent(wav[1], &first, &last);
+      lo = middle + last - CLIP_SAMPLES;
+      hi = middle + first;
+      if (lo < 0)
+        lo = 0;
+      if (hi > run_len - CLIP_SAMPLES)
+        hi = run_len - CLIP_SAMPLES;
+    }
+    if (hi >= lo) {
+      long start = lo + rand() % (hi - lo + 1);
+      memcpy(clip, run + start, sizeof(clip));
+      write_row(file, af, clip, label);
+      written[label]++;
+    }
+    for (int k = 0; k < 3; k++)
+      wav_free(wav[k]);
+  }
+  path_list_free(&wake);
+  path_list_free(&other);
+  free(bed);
+}
+
 // True if `name` is a word directory worth walking: not "." / "..", not the
 // wake word itself (already handled separately), and not the background
 // noise directory (also handled separately).
@@ -396,6 +626,11 @@ int main(int argc, char *argv[]) {
   int num_noise[NUM_SPLITS] = { 0 };
   write_background_noise(files, af, noise_dir, num_noise);
   print_counts("negative background-noise", num_noise);
+
+  int num_stream[2] = { 0 };
+  write_stream_windows(files[SPLIT_TRAIN], af, dataset_dir, wake_word, num_stream);
+  printf("Wrote %d streaming-window training rows (%d positive, %d negative).\n",
+         num_stream[0] + num_stream[1], num_stream[1], num_stream[0]);
 
   for (int i = 0; i < NUM_SPLITS; i++)
     fclose(files[i]);

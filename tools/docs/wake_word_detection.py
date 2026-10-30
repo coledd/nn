@@ -29,24 +29,50 @@ SAMPLE_RATE, FRAME_LEN, HOP_LEN, NUM_MEL_BINS = 16000, 512, 320, 20
 # Five train_cnn + five train_gru runs of the shipped code, each scored by
 # test on test.csv (195 "marvin", 10,853 other clips, speakers unseen in
 # training) at the default 0.5 threshold: false-reject %, false-accept %.
-RUNS = {"CNN": [(4.1, 2.79), (5.6, 1.43), (5.6, 2.79), (4.1, 2.09), (4.6, 3.79)],
-        "GRU": [(5.6, 2.40), (4.6, 2.79), (5.1, 2.78), (8.2, 1.52), (4.6, 3.43)]}
+RUNS = {"CNN": [(2.6, 2.50), (5.6, 0.96), (2.6, 3.12), (3.6, 1.08), (5.1, 1.12)],
+        "GRU": [(4.1, 2.34), (4.1, 1.89), (4.6, 1.52), (5.1, 2.36), (8.2, 1.07)]}
 
 # test's threshold table on test.csv for one representative run of each
-# (threshold, false-reject %, false-accept %).
+# (threshold, false-reject %, false-accept %): CNN run 4, GRU run 3.
 TRADEOFF = {
-    "CNN": [(0.05, 1.5, 11.14), (0.10, 1.5, 7.59), (0.15, 2.1, 5.88), (0.20, 2.1, 4.99), (0.25, 2.1, 4.22),
-            (0.30, 2.6, 3.57), (0.35, 3.1, 3.05), (0.40, 3.6, 2.70), (0.45, 3.6, 2.43), (0.50, 4.1, 2.09),
-            (0.55, 4.6, 1.78), (0.60, 5.6, 1.50), (0.65, 6.2, 1.32), (0.70, 7.2, 1.08), (0.75, 8.7, 0.92),
-            (0.80, 9.7, 0.67), (0.85, 10.3, 0.49), (0.90, 13.3, 0.39), (0.95, 16.9, 0.14)],
-    "GRU": [(0.05, 0.5, 17.09), (0.10, 1.5, 8.60), (0.15, 2.1, 6.46), (0.20, 3.6, 5.32), (0.25, 3.6, 4.46),
-            (0.30, 4.1, 3.81), (0.35, 4.6, 3.27), (0.40, 5.1, 2.90), (0.45, 5.6, 2.61), (0.50, 5.6, 2.40),
-            (0.55, 6.2, 2.13), (0.60, 6.7, 1.85), (0.65, 6.7, 1.63), (0.70, 8.2, 1.40), (0.75, 8.2, 1.23),
-            (0.80, 9.7, 1.07), (0.85, 11.8, 0.87), (0.90, 16.9, 0.66), (0.95, 20.5, 0.37)],
+    "CNN": [(0.05, 0.5, 5.84), (0.10, 1.0, 4.13), (0.15, 1.0, 3.34), (0.20, 2.6, 2.79), (0.25, 2.6, 2.33),
+            (0.30, 2.6, 1.95), (0.35, 3.6, 1.72), (0.40, 3.6, 1.47), (0.45, 3.6, 1.29), (0.50, 3.6, 1.08),
+            (0.55, 4.1, 0.96), (0.60, 4.1, 0.81), (0.65, 4.1, 0.66), (0.70, 4.6, 0.63), (0.75, 4.6, 0.53),
+            (0.80, 4.6, 0.45), (0.85, 5.6, 0.33), (0.90, 6.7, 0.21), (0.95, 8.7, 0.15)],
+    "GRU": [(0.05, 1.0, 7.56), (0.10, 1.0, 5.12), (0.15, 1.5, 4.16), (0.20, 1.5, 3.47), (0.25, 2.1, 2.89),
+            (0.30, 2.1, 2.56), (0.35, 3.1, 2.18), (0.40, 4.6, 1.94), (0.45, 4.6, 1.70), (0.50, 4.6, 1.52),
+            (0.55, 5.1, 1.36), (0.60, 5.1, 1.17), (0.65, 5.1, 1.00), (0.70, 5.1, 0.81), (0.75, 5.6, 0.70),
+            (0.80, 6.2, 0.58), (0.85, 7.7, 0.41), (0.90, 8.7, 0.27), (0.95, 11.3, 0.16)],
 }
 # Each CNN run's threshold chosen on validation.csv (the lowest giving at
 # most 1% false accepts there), and what it scored on test.csv.
-TUNED = [(0.80, 8.2, 0.81), (0.65, 7.7, 0.88), (0.80, 7.7, 0.99), (0.70, 7.2, 1.08), (0.85, 7.2, 0.99)]
+TUNED = [(0.75, 5.1, 0.92), (0.50, 5.6, 0.96), (0.90, 6.2, 0.57), (0.60, 4.1, 0.81), (0.55, 5.1, 0.84)]
+
+# stream's table on the test stream at 20 dB SNR (threshold, missed %,
+# false wake-ups per hour): CNN run 4 trained on whole clips only (before
+# prepare_data.c added streaming windows), and CNN run 4 and GRU run 3
+# trained with them.
+STREAM = {
+    "CNN, trained on whole clips only": [
+        (0.05, 0.5, 2177.49), (0.10, 0.5, 1839.75), (0.20, 0.5, 1429.40), (0.30, 0.5, 1163.73), (0.40, 0.5, 950.52),
+        (0.50, 0.5, 786.60), (0.60, 0.5, 643.69), (0.70, 0.5, 512.97), (0.80, 1.5, 387.91), (0.85, 2.6, 315.49),
+        (0.90, 4.6, 235.82), (0.95, 7.2, 130.72), (0.97, 10.3, 85.14), (0.98, 11.8, 64.48), (0.99, 14.4, 39.21),
+        (0.995, 16.4, 25.08)],
+    "CNN, with streaming windows": [
+        (0.05, 0.5, 891.17), (0.10, 0.5, 702.34), (0.20, 1.0, 534.70), (0.30, 1.0, 442.85), (0.40, 1.0, 362.65),
+        (0.50, 2.6, 274.15), (0.60, 3.1, 180.35), (0.70, 3.1, 126.30), (0.80, 3.6, 70.13), (0.85, 4.1, 56.70),
+        (0.90, 4.1, 34.80), (0.95, 5.6, 21.90), (0.97, 6.7, 14.84), (0.98, 6.7, 11.31), (0.99, 9.2, 6.36),
+        (0.995, 10.8, 3.71)],
+    "GRU, with streaming windows": [
+        (0.05, 1.0, 642.81), (0.10, 2.6, 362.65), (0.20, 3.6, 214.27), (0.30, 4.6, 158.27), (0.40, 4.6, 124.71),
+        (0.50, 5.6, 100.69), (0.60, 5.6, 83.91), (0.70, 6.2, 68.01), (0.80, 7.2, 51.93), (0.85, 8.2, 45.57),
+        (0.90, 10.3, 35.86), (0.95, 14.9, 11.48), (0.97, 17.4, 7.07), (0.98, 20.5, 4.24), (0.99, 26.2, 1.06),
+        (0.995, 35.9, 0.53)],
+}
+# The streaming-trained CNN runs whose validation stream reached at most 10
+# false wake-ups per hour (four of five), at that threshold on the test
+# stream: (false wake-ups per hour, missed %).
+STREAM_TUNED = [(7.60, 10.8), (6.71, 13.8), (6.36, 9.2), (8.30, 9.7)]
 
 def load_clip(path):
     """16-bit PCM -> float in [-1, 1), padded or truncated to 1 s (prepare_data.c)."""
@@ -161,15 +187,36 @@ def tradeoff_figure():
     ax.scatter([t[2] for t in TUNED], [t[1] for t in TUNED], s=60, marker="D", color=style.INK, zorder=5,
                label="CNN, all 5 runs, threshold\nset on validation for at most 1% false accepts")
     ax.set_xscale("log")
-    ax.set_xticks([0.2, 0.5, 1, 2, 5, 10, 20], ["0.2%", "0.5%", "1%", "2%", "5%", "10%", "20%"])
+    ax.set_xticks([0.2, 0.5, 1, 2, 5, 10], ["0.2%", "0.5%", "1%", "2%", "5%", "10%"])
     ax.minorticks_off()
-    ax.set_xlim(0.1, 25)
-    ax.set_ylim(0, 26)
+    ax.set_xlim(0.1, 10)
+    ax.set_ylim(0, 14)
     ax.yaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
     ax.set_xlabel("false-accept rate (other audio taken for “marvin”)", fontsize=9)
     ax.set_ylabel("false-reject rate\n(missed “marvin”)", fontsize=9)
     ax.legend(loc="lower left", frameon=False, fontsize=8.5)
     style.save(fig, os.path.join(OUT, "tradeoff.svg"))
+
+
+def stream_figure():
+    fig, ax = plt.subplots(figsize=(8.6, 3.8))
+    colors = [MUTED, SERIES[0], SERIES[1]]
+    for k, (name, rows) in enumerate(STREAM.items()):
+        ax.plot([r[2] for r in rows], [r[1] for r in rows], color=colors[k], lw=2, marker="o", ms=3.5,
+                ls="--" if k == 0 else "-", label=name, zorder=3)
+    ax.scatter([t[0] for t in STREAM_TUNED], [t[1] for t in STREAM_TUNED], s=60, marker="D", color=style.INK, zorder=5,
+               label="CNN with streaming windows, 4 runs, threshold\nset on validation for at most 10 false wake-ups/h")
+    ax.set_xscale("log")
+    ax.set_xticks([1, 3, 10, 30, 100, 300, 1000], ["1", "3", "10", "30", "100", "300", "1,000"])
+    ax.minorticks_off()
+    ax.set_xlim(0.4, 2500)
+    ax.set_ylim(0, 40)
+    ax.yaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
+    ax.set_xlabel("false wake-ups per hour", fontsize=9)
+    ax.set_ylabel("missed “marvin”", fontsize=9)
+    ax.legend(loc="upper right", frameon=False, fontsize=8.5)
+    ax.text(0.45, 38.5, "5.7-hour test stream · 20 dB SNR · window every 100 ms", fontsize=8.5, color=MUTED, va="top")
+    style.save(fig, os.path.join(OUT, "stream.svg"))
 
 
 if __name__ == "__main__":
@@ -179,4 +226,5 @@ if __name__ == "__main__":
     audio_figure()
     runs_figure()
     tradeoff_figure()
+    stream_figure()
     print("wrote", sorted(os.listdir(OUT)))

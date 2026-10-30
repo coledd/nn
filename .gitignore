@@ -21,6 +21,7 @@ runs
 samples.csv
 speech_commands_v0.02.tar.gz
 stm32
+stream
 summary
 test
 test.csv

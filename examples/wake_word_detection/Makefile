@@ -8,7 +8,7 @@ WAKE_WORD := marvin
 
 .PHONY: all clean distclean
 
-all: train_gru train_cnn test predict $(CSV_OUTPUTS)
+all: train_gru train_cnn test predict stream $(CSV_OUTPUTS)
 
 # Recursing into the top-level Makefile (rather than duplicating nn.o's/
 # data_prep.o's/audio_features.o's/fft.o's/wav_reader.o's build rules here) keeps
@@ -43,6 +43,11 @@ test: test.c ../../data_prep.o ../../libnn.a
 predict: predict.c ../../audio_features.o ../../fft.o ../../wav_reader.o ../../libnn.a
 	$(CC) $(CFLAGS) -I../.. predict.c ../../audio_features.o ../../fft.o ../../wav_reader.o ../../libnn.a $(LDFLAGS) -o $@
 
+# stream.c builds its test stream from the dataset's WAV files, so it links
+# the same libraries as predict.
+stream: stream.c ../../audio_features.o ../../fft.o ../../wav_reader.o ../../libnn.a
+	$(CC) $(CFLAGS) -I../.. stream.c ../../audio_features.o ../../fft.o ../../wav_reader.o ../../libnn.a $(LDFLAGS) -o $@
+
 # Same two libraries as predict, for the same reason (real WAV files in,
 # audio_features.[ch] doing the same feature extraction training will see).
 prepare_data: prepare_data.c ../../audio_features.o ../../fft.o ../../wav_reader.o ../../libnn.a
@@ -70,7 +75,7 @@ $(CSV_OUTPUTS)&: prepare_data $(DATASET_DIR)/$(WAKE_WORD)
 	./prepare_data $(DATASET_DIR) $(WAKE_WORD)
 
 clean:
-	$(RM) train_gru train_cnn test predict prepare_data model.* $(CSV_OUTPUTS)
+	$(RM) train_gru train_cnn test predict stream prepare_data model.* $(CSV_OUTPUTS)
 
 distclean: clean
 	$(RM) $(DATASET_ARCHIVE)
