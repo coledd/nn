@@ -369,6 +369,22 @@ typedef struct {
   // scratch array the way weights do; the gradient is applied directly).
   float **bias_moment1;
   float **bias_moment2;
+  // Mini-batch training, set by nn_set_batch_size(). batch_size 1 (nn_init()'s
+  // default) updates the weights on every nn_train() call, exactly as this
+  // library always has, and never allocates the two sum buffers below. Above
+  // 1, nn_train() instead adds each call's weight/bias gradients into
+  // weight_grad_sum/bias_grad_sum (same shapes as weight_moment1/
+  // bias_moment1) and counts it in batch_count; once batch_count reaches
+  // batch_size, it applies their mean through the selected optimizer (one
+  // optimizer step, one adam_step) and starts the next batch. The sums are
+  // allocated on the first batched nn_train() call and freed -- discarding
+  // any partial batch -- by anything that reshapes the model (nn_add_layer(),
+  // nn_quantize(), nn_remove_neuron()) or by nn_set_batch_size() itself.
+  // Like the optimizer's state, none of this is saved with a model.
+  uint32_t batch_size;
+  uint32_t batch_count;
+  float **weight_grad_sum;
+  float **bias_grad_sum;
   // Non-NULL only for a model returned by nn_load_model_inplace(): the two
   // activation buffers every non-recurrent layer's neuron[]/preact[] point
   // into, alternating layer by layer, instead of each layer owning its own
@@ -495,5 +511,21 @@ void nn_reset_state(nn_t *nn);
 // (NN_ERROR_READ_ONLY_MODEL) on an immutable (nn_load_model_inplace())
 // model, same as nn_train() itself -- there is nothing to train there.
 nn_error_t nn_set_optimizer(nn_t *nn, nn_optimizer_t optimizer, float momentum, float beta2, float epsilon);
+// Sets how many nn_train() calls' gradients are averaged into each weight
+// update (see nn_t's batch_size comment). 1, the default, updates on every
+// call. Larger batches give each update a less noisy gradient, which helps
+// Adam in particular; because the update uses the batch's MEAN gradient,
+// plain SGD usually wants its learning rate raised along with the batch
+// size. Any partial batch already accumulated is discarded. Call it once,
+// before training, like nn_set_optimizer(). Returns NN_ERROR_INVALID_ARGUMENT
+// for batch_size < 1, and NN_ERROR_READ_ONLY_MODEL on an immutable
+// (nn_load_model_inplace()) model.
+nn_error_t nn_set_batch_size(nn_t *nn, int batch_size);
+// Applies a partially filled batch now, as one update from the mean of the
+// gradients accumulated so far, using learning rate `rate`. Call it at the
+// end of each epoch, and before saving, so the last few samples aren't
+// held over (or lost). A no-op when nothing is pending, including whenever
+// batch_size is 1.
+nn_error_t nn_train_flush(nn_t *nn, float rate);
 
 #endif /* NN_H */

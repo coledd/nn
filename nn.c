@@ -353,6 +353,101 @@ static void nn_optimizer_apply(nn_t *nn, float *param, const float *grad, float 
   }
 }
 
+// True for a layer type with weights and biases of its own.
+static bool nn_layer_has_params(const nn_t *nn, int layer)
+{
+  return layer > 0 && nn->layer_type[layer] != LAYER_TYPE_POOL && nn->layer_type[layer] != LAYER_TYPE_DROPOUT;
+}
+
+// Frees the mini-batch gradient sums (see batch_size's comment in nn.h),
+// discarding any partial batch. Safe to call when none are allocated.
+static void nn_batch_free(nn_t *nn)
+{
+  if (nn->weight_grad_sum) {
+    for (int layer = 0; layer < (int)nn->depth; layer++)
+      free(nn->weight_grad_sum[layer]);
+    free(nn->weight_grad_sum);
+  }
+  if (nn->bias_grad_sum) {
+    for (int layer = 0; layer < (int)nn->depth; layer++)
+      free(nn->bias_grad_sum[layer]);
+    free(nn->bias_grad_sum);
+  }
+  nn->weight_grad_sum = NULL;
+  nn->bias_grad_sum = NULL;
+  nn->batch_count = 0;
+}
+
+// Allocates zeroed mini-batch gradient sums for every layer with weights,
+// shaped like weight[layer]/bias[layer]. Returns false (with nothing left
+// allocated) on an allocation failure.
+static bool nn_batch_alloc(nn_t *nn)
+{
+  nn->weight_grad_sum = (float **)calloc(nn->depth, sizeof(float *));
+  nn->bias_grad_sum = (float **)calloc(nn->depth, sizeof(float *));
+  if (!nn->weight_grad_sum || !nn->bias_grad_sum) {
+    nn_batch_free(nn);
+    return false;
+  }
+  for (int layer = 1; layer < (int)nn->depth; layer++) {
+    if (!nn_layer_has_params(nn, layer))
+      continue;
+    int rows, row_len, bias_count;
+    quantized_layer_shape(nn, layer, &rows, &row_len, &bias_count);
+    nn->weight_grad_sum[layer] = (float *)calloc((size_t)rows * row_len, sizeof(float));
+    nn->bias_grad_sum[layer] = (float *)calloc((size_t)bias_count, sizeof(float));
+    if (!nn->weight_grad_sum[layer] || !nn->bias_grad_sum[layer]) {
+      nn_batch_free(nn);
+      return false;
+    }
+  }
+  nn->batch_count = 0;
+  return true;
+}
+
+// nn_train()'s one way to use a computed gradient for layer `layer`'s
+// weights (is_bias false) or biases (true): apply it right away through the
+// optimizer when batch_size is 1, or add it to the batch's running sum.
+static void nn_param_update(nn_t *nn, int layer, bool is_bias, const float *grad, int total, float rate)
+{
+  if (nn->batch_size > 1) {
+    float *sum = is_bias ? nn->bias_grad_sum[layer] : nn->weight_grad_sum[layer];
+    for (int idx = 0; idx < total; idx++)
+      sum[idx] += grad[idx];
+  } else if (is_bias) {
+    nn_optimizer_apply(nn, nn->bias[layer], grad, nn->bias_moment1[layer], nn->bias_moment2[layer], total, rate);
+  } else {
+    nn_optimizer_apply(nn, nn->weight[layer], grad, nn->weight_moment1[layer], nn->weight_moment2[layer], total, rate);
+  }
+}
+
+// Applies the mean of the batch_count gradients summed so far as one
+// optimizer step, then zeroes the sums for the next batch.
+static void nn_batch_apply(nn_t *nn, float rate)
+{
+  if (nn->batch_count == 0 || !nn->weight_grad_sum)
+    return;
+  nn->adam_step++;
+  const float scale = 1.0f / (float)nn->batch_count;
+  for (int layer = 1; layer < (int)nn->depth; layer++) {
+    if (!nn_layer_has_params(nn, layer))
+      continue;
+    int rows, row_len, bias_count;
+    quantized_layer_shape(nn, layer, &rows, &row_len, &bias_count);
+    const int total = rows * row_len;
+    float *wsum = nn->weight_grad_sum[layer], *bsum = nn->bias_grad_sum[layer];
+    for (int idx = 0; idx < total; idx++)
+      wsum[idx] *= scale;
+    for (int idx = 0; idx < bias_count; idx++)
+      bsum[idx] *= scale;
+    nn_optimizer_apply(nn, nn->weight[layer], wsum, nn->weight_moment1[layer], nn->weight_moment2[layer], total, rate);
+    nn_optimizer_apply(nn, nn->bias[layer], bsum, nn->bias_moment1[layer], nn->bias_moment2[layer], bias_count, rate);
+    memset(wsum, 0, (size_t)total * sizeof(float));
+    memset(bsum, 0, (size_t)bias_count * sizeof(float));
+  }
+  nn->batch_count = 0;
+}
+
 // 2D pooling layer forward pass over the previous layer's (float) feature
 // maps. Supports MIN/MAX ("winner take all", cached for backprop routing)
 // and AVG (uniform reduction) pooling. Pooling has no weights/bias and no
@@ -1153,6 +1248,10 @@ nn_t *nn_init(void)
   nn->weight_moment2 = NULL;
   nn->bias_moment1 = NULL;
   nn->bias_moment2 = NULL;
+  nn->batch_size = 1;
+  nn->batch_count = 0;
+  nn->weight_grad_sum = NULL;
+  nn->bias_grad_sum = NULL;
   nn->activation_buffer = NULL;
   nn->immutable = false;
   return nn;
@@ -1307,6 +1406,7 @@ void nn_free(nn_t *nn)
       free(nn->gru_gate_grad[layer]);
     free(nn->gru_gate_grad);
   }
+  nn_batch_free(nn);
   free(nn->activation_buffer);
   free(nn);
 }
@@ -1370,6 +1470,9 @@ nn_error_t nn_add_layer(nn_t *nn, layer_type_t layer_type, int width, int activa
     return NN_ERROR_UNSUPPORTED_ACTIVATION;
   }
 
+  // The mini-batch sums are shaped to the old layer list (see batch_size's
+  // comment in nn.h); drop them, and nn_train() reallocates to match.
+  nn_batch_free(nn);
   // Increase depth by one
   nn->depth++;
   nn->layer_type = (uint8_t *)realloc(nn->layer_type, nn->depth * sizeof(*nn->layer_type));
@@ -1711,6 +1814,10 @@ float nn_train(nn_t *nn, float *inputs, float *targets, float rate)
     // Cannot train a quantized network, so convert to a floating point model first.
     nn_dequantize(nn);
   }
+  if (nn->batch_size > 1 && !nn->weight_grad_sum && !nn_batch_alloc(nn)) {
+    fprintf(stderr, "nn_train: out of memory allocating mini-batch gradient sums\n");
+    return NAN;
+  }
   nn->neuron[0] = inputs;
   // training=true: any DROPOUT layer actually drops/scales units here (see
   // forward_propagation()).
@@ -1981,11 +2088,14 @@ float nn_train(nn_t *nn, float *inputs, float *targets, float rate)
       }
     }
   }
-  // Adam's step counter: one increment per nn_train() call, shared across
-  // every layer's update within this call (see its comment in nn.h). Cheap
-  // to bump unconditionally; only ever read back under NN_OPTIMIZER_ADAM.
-  nn->adam_step++;
-  // Update biases (optimizer step -- SGD/MOMENTUM/ADAM, see nn_optimizer_apply())
+  // Adam's step counter: one increment per weight update, shared across
+  // every layer's update within it (see its comment in nn.h) -- here, per
+  // nn_train() call, unless mini-batching, where nn_batch_apply() bumps it
+  // once per batch instead. Only ever read back under NN_OPTIMIZER_ADAM.
+  if (nn->batch_size <= 1)
+    nn->adam_step++;
+  // Update biases (optimizer step -- SGD/MOMENTUM/ADAM, see nn_optimizer_apply() --
+  // or, when mini-batching, add to the batch's sums; see nn_param_update())
   for (i = 1; i < (int)nn->depth; i++) {
     if (nn->layer_type[i] == LAYER_TYPE_CNN) {
       cnn_t *cnn = nn->config[i];
@@ -1999,22 +2109,22 @@ float nn_train(nn_t *nn, float *inputs, float *targets, float rate)
         for (k = 0; k < plane; ++k)
           db[j] += nn->loss[i][j * plane + k];
       }
-      nn_optimizer_apply(nn, nn->bias[i], db, nn->bias_moment1[i], nn->bias_moment2[i], out_c, rate);
+      nn_param_update(nn, i, true, db, out_c, rate);
     } else if (nn->layer_type[i] == LAYER_TYPE_POOL || nn->layer_type[i] == LAYER_TYPE_DROPOUT) {
       // Pooling and dropout both have no bias
     } else if (nn->layer_type[i] == LAYER_TYPE_LSTM) {
       // 4*hidden biases (one per gate per hidden unit); the gradient for
       // each comes from lstm_gate_grad[i], not loss[i] (which is repurposed
       // as scratch space for this layer type -- see the backprop loop above).
-      nn_optimizer_apply(nn, nn->bias[i], nn->lstm_gate_grad[i], nn->bias_moment1[i], nn->bias_moment2[i], 4 * (int)nn->width[i], rate);
+      nn_param_update(nn, i, true, nn->lstm_gate_grad[i], 4 * (int)nn->width[i], rate);
     } else if (nn->layer_type[i] == LAYER_TYPE_GRU) {
       // 3*hidden biases (one per gate per hidden unit); the gradient for
       // each comes from gru_gate_grad[i], not loss[i] (which is repurposed
       // as scratch space for this layer type -- see the backprop loop above).
-      nn_optimizer_apply(nn, nn->bias[i], nn->gru_gate_grad[i], nn->bias_moment1[i], nn->bias_moment2[i], 3 * (int)nn->width[i], rate);
+      nn_param_update(nn, i, true, nn->gru_gate_grad[i], 3 * (int)nn->width[i], rate);
     } else {
       // FC / output layers
-      nn_optimizer_apply(nn, nn->bias[i], nn->loss[i], nn->bias_moment1[i], nn->bias_moment2[i], (int)nn->width[i], rate);
+      nn_param_update(nn, i, true, nn->loss[i], (int)nn->width[i], rate);
     }
   }
   // Calculate the weight adjustments. Note that their update is delayed until
@@ -2148,7 +2258,7 @@ float nn_train(nn_t *nn, float *inputs, float *targets, float rate)
       int kernels = cnn->out_channels * cnn->in_channels;
       int k_elems = cnn->kernel_size * cnn->kernel_size;
       int total = kernels * k_elems;
-      nn_optimizer_apply(nn, nn->weight[i], nn->weight_adj[i], nn->weight_moment1[i], nn->weight_moment2[i], total, rate);
+      nn_param_update(nn, i, false, nn->weight_adj[i], total, rate);
     } else if (nn->layer_type[i] == LAYER_TYPE_POOL || nn->layer_type[i] == LAYER_TYPE_DROPOUT) {
       // Pooling and dropout both have no weights
     } else if (nn->layer_type[i] == LAYER_TYPE_RNN) {
@@ -2157,27 +2267,30 @@ float nn_train(nn_t *nn, float *inputs, float *targets, float rate)
       // above, so a single flat update over the whole row-major buffer
       // updates both halves correctly.
       int total = (int)nn->width[i] * ((int)nn->width[i - 1] + (int)nn->width[i]);
-      nn_optimizer_apply(nn, nn->weight[i], nn->weight_adj[i], nn->weight_moment1[i], nn->weight_moment2[i], total, rate);
+      nn_param_update(nn, i, false, nn->weight_adj[i], total, rate);
     } else if (nn->layer_type[i] == LAYER_TYPE_LSTM) {
       // Same idea as RNN above, but 4x the rows (one per gate per hidden
       // unit -- see quantized_layer_shape()).
       int rows, row_len, bias_count;
       quantized_layer_shape(nn, i, &rows, &row_len, &bias_count);
       int total = rows * row_len;
-      nn_optimizer_apply(nn, nn->weight[i], nn->weight_adj[i], nn->weight_moment1[i], nn->weight_moment2[i], total, rate);
+      nn_param_update(nn, i, false, nn->weight_adj[i], total, rate);
     } else if (nn->layer_type[i] == LAYER_TYPE_GRU) {
       // Same idea as RNN/LSTM above, but 3x the rows (one per gate per
       // hidden unit -- see quantized_layer_shape()).
       int rows, row_len, bias_count;
       quantized_layer_shape(nn, i, &rows, &row_len, &bias_count);
       int total = rows * row_len;
-      nn_optimizer_apply(nn, nn->weight[i], nn->weight_adj[i], nn->weight_moment1[i], nn->weight_moment2[i], total, rate);
+      nn_param_update(nn, i, false, nn->weight_adj[i], total, rate);
     } else {
       // FC / output layers
       int total = (int)nn->width[i] * (int)nn->width[i - 1];
-      nn_optimizer_apply(nn, nn->weight[i], nn->weight_adj[i], nn->weight_moment1[i], nn->weight_moment2[i], total, rate);
+      nn_param_update(nn, i, false, nn->weight_adj[i], total, rate);
     }
   }
+  // A full mini-batch: apply its mean gradient as one update.
+  if (nn->batch_size > 1 && ++nn->batch_count >= nn->batch_size)
+    nn_batch_apply(nn, rate);
   // Return the pre-update error computed above
   return err;
 }
@@ -2248,6 +2361,26 @@ nn_error_t nn_set_optimizer(nn_t *nn, nn_optimizer_t optimizer, float momentum, 
       return NN_ERROR_OUT_OF_MEMORY;
     }
   }
+  return NN_ERROR_NONE;
+}
+
+// See the comments on these two in nn.h.
+nn_error_t nn_set_batch_size(nn_t *nn, int batch_size)
+{
+  if (!nn || batch_size < 1)
+    return NN_ERROR_INVALID_ARGUMENT;
+  if (nn->immutable)
+    return NN_ERROR_READ_ONLY_MODEL;
+  nn_batch_free(nn);
+  nn->batch_size = (uint32_t)batch_size;
+  return NN_ERROR_NONE;
+}
+
+nn_error_t nn_train_flush(nn_t *nn, float rate)
+{
+  if (!nn)
+    return NN_ERROR_INVALID_ARGUMENT;
+  nn_batch_apply(nn, rate);
   return NN_ERROR_NONE;
 }
 
@@ -3012,6 +3145,10 @@ static nn_t *nn_load_model_inplace_impl(const uint8_t *data, size_t size, bool c
   nn->weight_moment2 = NULL;
   nn->bias_moment1 = NULL;
   nn->bias_moment2 = NULL;
+  nn->batch_size = 1;
+  nn->batch_count = 0;
+  nn->weight_grad_sum = NULL;
+  nn->bias_grad_sum = NULL;
   nn->activation_buffer = NULL;
 
   // Allocate every top-level array up front, all sized to `depth` and
@@ -3629,6 +3766,8 @@ nn_error_t nn_remove_neuron(nn_t *nn, int layer, int neuron_index)
     // caller's (read-only) buffer for a model loaded with nn_load_model_inplace().
     return NN_ERROR_READ_ONLY_MODEL;
   }
+  // Any partial mini-batch is shaped to the layers being resized; drop it.
+  nn_batch_free(nn);
   // A CNN/POOL layer's width is derived entirely from its cnn_t/pool_t
   // config (spatial dims x channels), not a flat list of independent
   // neurons, and its weight array (if any) isn't neuron-indexed -- there is
@@ -4028,6 +4167,8 @@ nn_error_t nn_quantize(nn_t *nn)
     // nn_load_model_inplace().
     return NN_ERROR_READ_ONLY_MODEL;
   }
+  // A quantized model can't train, so a partial mini-batch has nowhere to go.
+  nn_batch_free(nn);
   const int depth = (int)nn->depth;
   // Free the float-mode weight_scale/bias_scale placeholders (allocated by
   // nn_add_layer) before replacing them with the real quantized-mode arrays

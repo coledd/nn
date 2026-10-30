@@ -117,7 +117,7 @@ Training times are single-threaded on the desktop used for this document. Runs s
 | + random shifts of up to 2 pixels (three runs) | 99.11–99.26% | 98.08–98.35% |
 | + learning rate × 0.9 per epoch: this example's code (five runs) | **99.29–99.42%** | **98.66–98.81%** |
 
-Adam was also tried in place of plain SGD, with and without the shifts, and scored lower in both cases (98.75–99.17%, three runs each). With one digit per update, its per-weight step sizes chase noise.
+Adam was also tried in place of plain SGD. With one digit per update it scored lower, with and without the shifts (98.75–99.17%, three runs each): its per-weight step sizes chase noise. Averaging 32 digits per update with `nn_set_batch_size()` fixes that, and it then matches SGD rather than beating it: 99.33–99.45%, median 99.40%, over five runs (learning rate 0.001, decaying by 0.9 per epoch). For the fully-connected network, Adam with 64 digits per update scored 98.60–98.81%, median 98.66%. Both networks stay on SGD here, which reaches the same accuracy without Adam's two extra floats per weight.
 
 <p align="center">
   <img src="figures/training.svg" alt="Training and validation cross-entropy per epoch for one run of each network. CNN: validation error falls to its best, 0.023, at epoch 10, below training error until the last epoch. Fully connected: validation error falls more slowly to its best, 0.042, at epoch 26, below training error until the last three epochs." width="900">
