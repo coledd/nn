@@ -28,7 +28,7 @@
   </g>
   <!-- result strip -->
   <rect x="104" y="424" width="382" height="34" rx="8" fill="#0d366b"/>
-  <text x="295" y="447" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="700" fill="#ffffff" text-anchor="middle">8 · 99.99%</text>
+  <text x="295" y="447" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="700" fill="#ffffff" text-anchor="middle">8 · 99.95%</text>
 
   <!-- 28 x 28 grid the input is scaled to -->
   <g transform="translate(640 150)">

@@ -2,7 +2,7 @@
   <img src="figures/banner.svg" alt="Character Recognition: reading handwritten digits on a microcontroller, and measuring what convolution buys over a plain network." width="100%">
 </p>
 
-> **Abstract.** Turning a small handwritten image into a digit is the "hello world" of embedded vision, and the same model shape reads handwritten amounts, form fields and dials on devices with no network connection. This example trains two networks on the same MNIST digits — a convolutional network (CNN) and a plain fully-connected one — and evaluates both with the same test program on MNIST's standard 10,000-digit test set, written by different people than the training digits, so what the convolution layers buy is measured rather than assumed. Over five training runs each, the CNN scores 99.29–99.42% (median 99.39%) and the fully-connected network 98.66–98.81% (median 98.71%): about half the mistakes, with about the same number of parameters (100K and 109K) but eight times the arithmetic per digit for the CNN. Quantized to 8-bit integers, neither loses measurable accuracy, and the CNN fits in 99 KB of flash. The library behind it has run this task live on an STM32H7 microcontroller.
+> **Abstract.** Turning a small handwritten image into a digit is the "hello world" of embedded vision, and the same model shape reads handwritten amounts, form fields and dials on devices with no network connection. This example trains two networks on the same MNIST digits — a convolutional network (CNN) and a plain fully-connected one — and evaluates both with the same test program on MNIST's standard 10,000-digit test set, written by different people than the training digits, so what the convolution layers buy is measured rather than assumed. The reference CNN scores 99.41% (six training runs: 99.29–99.42%, median 99.39%) and the fully-connected network 98.71% (five runs: 98.66–98.81%): about half the mistakes, with about the same number of parameters (100K and 109K) but eight times the arithmetic per digit for the CNN. Quantized to 8-bit integers, neither loses measurable accuracy, and the CNN fits in 99 KB of flash. The library behind it has run this task live on an STM32H7 microcontroller.
 
 | | |
 |---|---|
@@ -10,7 +10,7 @@
 | **Data** | MNIST: 60,000 training digits (54,000 to train, 6,000 to validate) and its standard 10,000-digit test set; 8-bit grayscale scaled to 0–1 |
 | **Model** | CNN: 2 × (5 × 5 conv + GELU + 2 × 2 max pool) → FC 120 → FC 20 → softmax 10 (100,254 parameters). Baseline: FC 128 → FC 64 → softmax 10 (109,386) |
 | **Hardware** | STM32H7 microcontroller (the library's own demonstration); 101,628 bytes of flash for the int8 CNN |
-| **Result** | Test accuracy, five runs each: CNN 99.29–99.42% (median 99.39%), fully connected 98.66–98.81% (median 98.71%) |
+| **Result** | Test accuracy: CNN 99.41% (reference model; six runs 99.29–99.42%, median 99.39%), fully connected 98.71% (median of five runs, 98.66–98.81%) |
 
 ## 1. The problem
 
@@ -94,16 +94,16 @@ Both programs train the same way:
 
 ## 5. Results
 
-Five runs of each program, each scored on the same 10,000 test digits. Random initialization and shuffling make every run a little different.
+Six runs of the CNN and five of the fully-connected network, each scored on the same 10,000 test digits. Random initialization and shuffling make every run a little different. The rest of this document uses one *reference model* of each: for the CNN the sixth run, for the fully-connected network its median run.
 
-| | Parameters | Multiply-adds per digit | Test accuracy, five runs | Median | Mistakes, median run | Training time per epoch |
+| | Parameters | Multiply-adds per digit | Test accuracy, all runs | Median | Reference model (mistakes) | Training time per epoch |
 |---|---|---|---|---|---|---|
-| `train_cnn` | 100,254 | ~880K | 99.29–99.42% | **99.39%** | 61 | 48 s |
-| `train_fc` | 109,386 | ~109K | 98.66–98.81% | 98.71% | 129 | 1.3 s |
+| `train_cnn` | 100,254 | ~880K | 99.29–99.42% (6 runs) | 99.39% | **99.41%** (59) | 48 s |
+| `train_fc` | 109,386 | ~109K | 98.66–98.81% (5 runs) | 98.71% | 98.71% (129) | 1.3 s |
 
-Training times are single-threaded on the desktop used for this document. Runs stop after 13–34 epochs, so a CNN run takes 10–30 minutes and a fully-connected one under a minute.
+Training times are single-threaded on the desktop used for this document. The timed runs stopped after 13–34 epochs, so a CNN run takes 10–30 minutes and a fully-connected one under a minute.
 
-**What convolution buys.** With slightly fewer parameters, the CNN makes about half the mistakes on digits from writers it never saw: 61 against 129 in the median runs. It also stands up to the published record: LeNet-5, the convolutional network MNIST was introduced with, scored 99.05% on this same test set [1].
+**What convolution buys.** With slightly fewer parameters, the CNN makes about half the mistakes on digits from writers it never saw: 59 against 129 for the two reference models (61 for the CNN's median run). It also stands up to the published record: LeNet-5, the convolutional network MNIST was introduced with, scored 99.05% on this same test set [1].
 
 **What it costs.** The arithmetic: about eight times as many multiply-adds per digit, and an epoch of training about 38 times longer. For a device reading one digit at a time that is still only milliseconds of work (see section 6), but it's the trade the CNN makes: computation for accuracy, with about the same number of weights. Its working buffers do need more RAM: about 32 KiB, against under 2 KiB (section 6).
 
@@ -115,31 +115,31 @@ Training times are single-threaded on the desktop used for this document. Runs s
 | Grayscale pixels, MNIST's own test set, scored by most probable class (five runs) | 98.71–98.96% | 97.47–97.96% |
 | + GELU on the convolutions, which had been linear (three runs) | 98.97–99.25% | — |
 | + random shifts of up to 2 pixels (three runs) | 99.11–99.26% | 98.08–98.35% |
-| + learning rate × 0.9 per epoch: this example's code (five runs) | **99.29–99.42%** | **98.66–98.81%** |
+| + learning rate × 0.9 per epoch: this example's code (six CNN runs, five fully connected) | **99.29–99.42%** | **98.66–98.81%** |
 
 Adam was also tried in place of plain SGD. With one digit per update it scored lower, with and without the shifts (98.75–99.17%, three runs each): its per-weight step sizes chase noise. Averaging 32 digits per update with `nn_set_batch_size()` fixes that, and it then matches SGD rather than beating it: 99.33–99.45%, median 99.40%, over five runs (learning rate 0.001, decaying by 0.9 per epoch). For the fully-connected network, Adam with 64 digits per update scored 98.60–98.81%, median 98.66%. Both networks stay on SGD here, which reaches the same accuracy without Adam's two extra floats per weight.
 
 <p align="center">
   <img src="figures/training.svg" alt="Training and validation cross-entropy per epoch for one run of each network. CNN: validation error falls to its best, 0.023, at epoch 10, below training error until the last epoch. Fully connected: validation error falls more slowly to its best, 0.042, at epoch 26, below training error until the last three epochs." width="900">
 </p>
-<p align="center"><sub><b>Figure 5.</b> Training curves for the median run of each network. The dot marks the epoch whose model was saved (lowest validation error); training stopped five epochs later.</sub></p>
+<p align="center"><sub><b>Figure 5.</b> Training curves for the median run of each network (the CNN reference model's training log wasn't kept). The dot marks the epoch whose model was saved (lowest validation error); training stopped five epochs later.</sub></p>
 
 Validation error stays below training error for both networks until the last few epochs, the reverse of the usual overfitting picture. Training digits are shifted at random and the CNN's dropout is active during training, so the training set is the harder of the two. Neither network memorizes its training digits the way the earlier, unshifted fully-connected network did.
 
 <p align="center">
-  <img src="figures/confusion.svg" alt="Confusion matrix of the median CNN run on 10,000 test digits; diagonal counts between 884 and 1,127; the largest off-diagonal counts are 5 read as 3 (6 times), 9 read as 4 (5), and 6 read as 5 and 2 read as 7 (4 each)." width="560">
+  <img src="figures/confusion.svg" alt="Confusion matrix of the reference CNN on 10,000 test digits; diagonal counts between 887 and 1,130; the largest off-diagonal counts are 9 read as 4 (7 times), 7 read as 2 (5), and 9 read as 5 and 6 read as 8 (4 each)." width="560">
 </p>
-<p align="center"><sub><b>Figure 6.</b> The median CNN run's test-set confusion matrix (9,939 of 10,000 correct, 99.39%). Diagonal: correct; red cells: mistakes, darker for more.</sub></p>
+<p align="center"><sub><b>Figure 6.</b> The reference CNN's test-set confusion matrix (9,941 of 10,000 correct, 99.41%). Diagonal: correct; red cells: mistakes, darker for more.</sub></p>
 
 <p align="center">
   <img src="figures/mistakes.png" alt="Twenty-four misclassified test digits, each labeled with its true and predicted class; many are ambiguous or unusually written." width="760">
 </p>
 <p align="center"><sub><b>Figure 7.</b> The first 24 test digits the CNN gets wrong, labeled true → predicted. Many are hard for a person too.</sub></p>
 
-The mistakes that remain are the familiar MNIST ones: 5s whose upright stroke is short or missing become 3s, 9s with an open loop become 4s, and 8s left open on one side become 3s. Digit 9 has the lowest per-class accuracy (98.8%), then 5 and 6 (99.1%); 3 and 4 have the highest (99.9% and 99.8%).
+The mistakes that remain are the familiar MNIST ones. 9s are the hardest, read as 4s (7 times) or 5s (4), mostly where the loop is open or squashed. 7s become 2s (5), like the crossbarred one in Figure 7, and 6s become 8s (4). Digit 9 has the lowest per-class accuracy (98.6%), then 6 and 7 (99.0%); 0 and 2 have the highest (99.8%).
 
 <p align="center">
-  <img src="figures/predict.svg" alt="predict.c's built-in 28 by 28 sample, a blocky 8, beside the CNN's softmax output: 0.9999 for 8 and under 0.0001 for every other digit." width="760">
+  <img src="figures/predict.svg" alt="predict.c's built-in 28 by 28 sample, a blocky 8, beside the CNN's softmax output: 0.9995 for 8, 0.0005 for 5, and under 0.0001 for every other digit." width="760">
 </p>
 <p align="center"><sub><b>Figure 8.</b> <code>predict</code> on its built-in sample: the input, and the CNN's probability for each digit.</sub></p>
 
@@ -152,7 +152,7 @@ The mistakes that remain are the familiar MNIST ones: 5s whose upright stroke is
 | **Flash**, int8, `export --inplace` | 101,628 bytes | 110,272 bytes |
 | **RAM**, model loaded with `nn_load_model_inplace()` | ~32 KiB | ~1.7 KiB |
 | **Compute** per digit | ~880,000 multiply-adds | ~109,000 multiply-adds |
-| Accuracy cost of int8 (median run) | none: 99.39% → 99.40% | 98.71% → 98.67% |
+| Accuracy cost of int8 (reference models) | none: 99.41% → 99.41% | 98.71% → 98.67% |
 
 To build the flash-resident int8 model:
 
@@ -191,9 +191,9 @@ The figures in this document are generated by `tools/docs/character_recognition.
 
 ## Appendix B. Program output
 
-From the median run of each network in section 5.
+The training log is the CNN's median run (the reference model's wasn't kept); the `test` and `predict` output is the reference model's.
 
-Training log (`train_cnn`):
+Training log (`train_cnn`, median run):
 ```
 Creating new model.
 train error, validation error, learning rate
@@ -220,8 +220,8 @@ Training epochs: 15
 
 `test model_cnn.txt`:
 ```
-Train: 53740/54000 = 99.52%
-Test : 9939/10000 = 99.39%
+Train: 53838/54000 = 99.70%
+Test : 9941/10000 = 99.41%
 ```
 
 `predict model_cnn.txt` (per-class probability for the built-in sample):
@@ -229,12 +229,12 @@ Test : 9939/10000 = 99.39%
 0: 0.00000
 1: 0.00000
 2: 0.00000
-3: 0.00000
+3: 0.00006
 4: 0.00000
-5: 0.00009
+5: 0.00048
 6: 0.00000
 7: 0.00000
-8: 0.99990
+8: 0.99947
 9: 0.00000
 ```
 

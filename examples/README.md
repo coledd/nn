@@ -21,7 +21,7 @@ Read in order, they also tell a story. Each example needs a little more memory, 
 
 <a href="character_recognition/README.md"><img src="character_recognition/figures/banner.svg" alt="Example 01, Character Recognition" width="100%"></a>
 
-Recognizes handwritten digits (MNIST), the "hello world" of embedded vision and the network behind this library's own STM32H7 hardware demo. It trains a convolutional network and a plain fully-connected one on the same data and scores both with the same test program, so what convolution buys is measured rather than assumed: **99.39% against 98.71%** (median of five runs each) on MNIST's standard 10,000-digit test set, with about the same number of parameters.
+Recognizes handwritten digits (MNIST), the "hello world" of embedded vision and the network behind this library's own STM32H7 hardware demo. It trains a convolutional network and a plain fully-connected one on the same data and scores both with the same test program, so what convolution buys is measured rather than assumed: **99.41% against 98.71%** (the reference model of each; the CNN's six runs scored 99.29–99.42%) on MNIST's standard 10,000-digit test set, with about the same number of parameters.
 
 <a href="gesture_recognition/README.md"><img src="gesture_recognition/figures/banner.svg" alt="Example 02, Gesture Recognition" width="100%"></a>
 
